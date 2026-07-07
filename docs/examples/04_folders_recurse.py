@@ -5,24 +5,24 @@ Run the tutorial REST service docker container:
 ```
 docker run -p 8080:8080 ghcr.io/opendma/tutorial-xmlrepo:0.8.1
 ```
-It will provide the tutorial xml repository. Make sure that this service is available by opening  
-http://localhost:8080/opendma  
+It will provide the tutorial xml repository. Make sure that this service is available by opening
+http://localhost:8080/opendma
 in a web browser.
 """
 
 from langchain_opendma import OpenDMALoader
 
-print(f"recurse_folders=False")
+print("recurse_folders=False")
 
 loader = OpenDMALoader(
     endpoint="http://localhost:8080/opendma",
-	username="ignored",
+    username="ignored",
     password="ignored",
     repository_id="sample-repo",
-    folder_ids=[ "sample-folder-root" ],
+    folder_ids=["sample-folder-root"],
     recurse_folders=False,
     include_no_content=True,
-    include_unhandled_content=True
+    include_unhandled_content=True,
 )
 
 documents = loader.load()
@@ -31,17 +31,17 @@ print(f"Loaded {len(documents)} documents")
 for doc in documents:
     print(f"ID: {doc.metadata.get('opendma:Id')}")
 
-print(f"\nrecurse_folders=True")
+print("\nrecurse_folders=True")
 
 loader = OpenDMALoader(
     endpoint="http://localhost:8080/opendma",
-	username="ignored",
+    username="ignored",
     password="ignored",
     repository_id="sample-repo",
-    folder_ids=[ "sample-folder-root" ],
+    folder_ids=["sample-folder-root"],
     recurse_folders=True,
     include_no_content=True,
-    include_unhandled_content=True
+    include_unhandled_content=True,
 )
 
 documents = loader.load()
@@ -49,4 +49,3 @@ print(f"Loaded {len(documents)} documents")
 
 for doc in documents:
     print(f"ID: {doc.metadata.get('opendma:Id')}")
-
