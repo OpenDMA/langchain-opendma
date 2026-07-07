@@ -22,6 +22,13 @@ class OpenDMALoader(BaseLoader):
     - By folder IDs (with optional recursion)
     - By query (with specified query language)
 
+    All documents include a "ContentState" metadata field indicating how content
+    was handled:
+    - "Processed": Content extracted and processed by a ContentHandler
+    - "Missing": No content available (only if include_no_content=True)
+    - "Unsupported": Content MIME type not supported (only if include_unhandled_content=True)
+    - "Rendition": Content from ECM rendition (future feature)
+
     Example:
         ```python
         from langchain_opendma import OpenDMALoader
@@ -51,6 +58,8 @@ class OpenDMALoader(BaseLoader):
         query: str | None = None,
         query_language: str | None = None,
         content_handlers: list[ContentHandler] | None = None,
+        include_no_content: bool = False,
+        include_unhandled_content: bool = False,
     ) -> None:
         """Initialize the OpenDMA loader.
 
@@ -66,6 +75,10 @@ class OpenDMALoader(BaseLoader):
             query_language: Query language for the query (required if query is set)
             content_handlers: List of content handlers for transforming content.
                 Defaults to [PlainTextHandler()]
+            include_no_content: If True, include documents without content as empty
+                Documents with ContentState="Missing"
+            include_unhandled_content: If True, include documents with unsupported
+                MIME types as empty Documents with ContentState="Unsupported"
         """
         self.endpoint = endpoint
         self.username = username
@@ -77,6 +90,8 @@ class OpenDMALoader(BaseLoader):
         self.query = query
         self.query_language = query_language
         self.content_handlers = content_handlers or [PlainTextHandler()]
+        self.include_no_content = include_no_content
+        self.include_unhandled_content = include_unhandled_content
 
         if self.query and not self.query_language:
             raise ValueError("query_language must be specified when query is provided")
@@ -180,18 +195,30 @@ class OpenDMALoader(BaseLoader):
         except ImportError as e:
             raise ImportError("opendma-api package not found") from e
 
+        # Extract metadata first (needed for all cases)
+        metadata = self._extract_metadata(session, document)
+
         # Get primary content element
         content_element = document.get_primary_content_element()
         if content_element is None:
+            if self.include_no_content:
+                metadata["ContentState"] = "Missing"
+                yield Document(page_content="", metadata=metadata)
             return
 
         if not isinstance(content_element, OdmaDataContentElement):
+            if self.include_no_content:
+                metadata["ContentState"] = "Missing"
+                yield Document(page_content="", metadata=metadata)
             return
 
         mime_type = content_element.get_content_type()
 
         if mime_type is None:
-            # No MIME type - do not know how to handle this content
+            # No MIME type - treat as missing content
+            if self.include_no_content:
+                metadata["ContentState"] = "Missing"
+                yield Document(page_content="", metadata=metadata)
             return
 
         # Find a handler that can process this MIME type
@@ -203,24 +230,35 @@ class OpenDMALoader(BaseLoader):
 
         if handler is None:
             # No handler for this MIME type
+            if self.include_unhandled_content:
+                metadata["ContentState"] = "Unsupported"
+                yield Document(page_content="", metadata=metadata)
             return
 
         # Get content data
         content = content_element.get_content()
         if content is None:
+            if self.include_no_content:
+                metadata["ContentState"] = "Missing"
+                yield Document(page_content="", metadata=metadata)
             return
 
         stream = content.get_stream()
         if stream is None:
+            if self.include_no_content:
+                metadata["ContentState"] = "Missing"
+                yield Document(page_content="", metadata=metadata)
             return
 
         content_bytes = stream.read()
 
-        # Extract metadata
-        metadata = self._extract_metadata(session, document)
+        # Transform content using handler
+        documents = handler.transform(content_bytes, mime_type, metadata)
 
-        # Transform content
-        yield from handler.transform(content_bytes, mime_type, metadata)
+        # Add ContentState to all documents returned by handler
+        for doc in documents:
+            doc.metadata["ContentState"] = "Processed"
+            yield doc
 
     def _load_from_document_ids(self, session: Any) -> Iterator[Document]:
         """Load documents by their IDs.

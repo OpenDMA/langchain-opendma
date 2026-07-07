@@ -25,5 +25,15 @@ documents = loader.load()
 print(f"Loaded {len(documents)} documents")
 
 for doc in documents:
-    print(f"\nTitle: {doc.metadata.get('opendma:Title')}")
-    print(f"Content preview: {doc.page_content[:100]}...")
+    print(f"\n{'-'*80}")
+    print(f"Title: {doc.metadata.get('opendma:Title')}")
+    print(f"Content State: {doc.metadata.get('ContentState')}")
+    print("Metadata:")
+    for key, value in doc.metadata.items():
+        # Truncate long values for readability
+        value_str = str(value)
+        if len(value_str) > 100:
+            value_str = value_str[:97] + "..."
+        print(f"  {key}: {value_str}")
+    print(f"Content:")
+    print(doc.page_content[:200] + ("..." if len(doc.page_content) > 200 else ""))
