@@ -22,7 +22,7 @@ class OpenDMALoader(BaseLoader):
     - By folder IDs (with optional recursion)
     - By query (with specified query language)
 
-    All documents include a "ContentState" metadata field indicating how content
+    All documents include a "content_state" metadata field indicating how content
     was handled:
     - "Processed": Content extracted and processed by a ContentHandler
     - "Missing": No content available (only if include_no_content=True)
@@ -76,9 +76,9 @@ class OpenDMALoader(BaseLoader):
             content_handlers: List of content handlers for transforming content.
                 Defaults to [PlainTextHandler()]
             include_no_content: If True, include documents without content as empty
-                Documents with ContentState="Missing"
+                Documents with content_state="Missing"
             include_unhandled_content: If True, include documents with unsupported
-                MIME types as empty Documents with ContentState="Unsupported"
+                MIME types as empty Documents with content_state="Unsupported"
         """
         self.endpoint = endpoint
         self.username = username
@@ -202,13 +202,13 @@ class OpenDMALoader(BaseLoader):
         content_element = document.get_primary_content_element()
         if content_element is None:
             if self.include_no_content:
-                metadata["ContentState"] = "Missing"
+                metadata["content_state"] = "Missing"
                 yield Document(page_content="", metadata=metadata)
             return
 
         if not isinstance(content_element, OdmaDataContentElement):
             if self.include_no_content:
-                metadata["ContentState"] = "Missing"
+                metadata["content_state"] = "Missing"
                 yield Document(page_content="", metadata=metadata)
             return
 
@@ -217,7 +217,7 @@ class OpenDMALoader(BaseLoader):
         if mime_type is None:
             # No MIME type - treat as missing content
             if self.include_no_content:
-                metadata["ContentState"] = "Missing"
+                metadata["content_state"] = "Missing"
                 yield Document(page_content="", metadata=metadata)
             return
 
@@ -231,7 +231,7 @@ class OpenDMALoader(BaseLoader):
         if handler is None:
             # No handler for this MIME type
             if self.include_unhandled_content:
-                metadata["ContentState"] = "Unsupported"
+                metadata["content_state"] = "Unsupported"
                 yield Document(page_content="", metadata=metadata)
             return
 
@@ -239,14 +239,14 @@ class OpenDMALoader(BaseLoader):
         content = content_element.get_content()
         if content is None:
             if self.include_no_content:
-                metadata["ContentState"] = "Missing"
+                metadata["content_state"] = "Missing"
                 yield Document(page_content="", metadata=metadata)
             return
 
         stream = content.get_stream()
         if stream is None:
             if self.include_no_content:
-                metadata["ContentState"] = "Missing"
+                metadata["content_state"] = "Missing"
                 yield Document(page_content="", metadata=metadata)
             return
 
@@ -255,9 +255,9 @@ class OpenDMALoader(BaseLoader):
         # Transform content using handler
         documents = handler.transform(content_bytes, mime_type, metadata)
 
-        # Add ContentState to all documents returned by handler
+        # Add content_state to all documents returned by handler
         for doc in documents:
-            doc.metadata["ContentState"] = "Processed"
+            doc.metadata["content_state"] = "Processed"
             yield doc
 
     def _load_from_document_ids(self, session: Any) -> Iterator[Document]:

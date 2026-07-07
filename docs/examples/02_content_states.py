@@ -29,7 +29,7 @@ print(f"Loaded {len(documents)} documents")
 for doc in documents:
     print(f"\n{'-' * 80}")
     print(f"Title: {doc.metadata.get('opendma:Title')}")
-    print(f"Content State: {doc.metadata.get('ContentState')}")
+    print(f"Content State: {doc.metadata.get('content_state')}")
     print("Metadata:")
     for key, value in doc.metadata.items():
         # Truncate long values for readability
