@@ -10,6 +10,7 @@ from langchain_opendma.content_handlers import (
     ContentHandler,
     PlainTextHandler,
     UnstructuredLoaderContentHandler,
+    DoclingLoaderContentHandler,
 )
 from langchain_opendma.loaders import OpenDMALoader
 
@@ -20,4 +21,5 @@ __all__ = [
     "ContentHandler",
     "PlainTextHandler",
     "UnstructuredLoaderContentHandler",
+    "DoclingLoaderContentHandler",
 ]

@@ -300,3 +300,143 @@ class UnstructuredLoaderContentHandler:
             doc.metadata = {**doc.metadata, **metadata}
 
         return docs
+
+
+class DoclingLoaderContentHandler:
+    """Content handler using DoclingLoader for document conversion.
+
+    This handler uses the optional ``langchain-docling`` package. Docling supports
+    chunked output via its default export mode and single-document Markdown output
+    via ``ExportType.MARKDOWN``.
+
+    Note:
+        Requires optional dependency: pip install langchain-opendma[docling]
+    """
+
+    SUPPORTED_MIME_TYPES = {
+        "application/pdf": ".pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.template": ".dotx",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+        "application/vnd.openxmlformats-officedocument.presentationml.slideshow": ".ppsx",
+        "application/vnd.openxmlformats-officedocument.presentationml.template": ".potx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+        "application/vnd.oasis.opendocument.text": ".odt",
+        "application/vnd.oasis.opendocument.text-template": ".ott",
+        "application/vnd.oasis.opendocument.spreadsheet": ".ods",
+        "application/vnd.oasis.opendocument.spreadsheet-template": ".ots",
+        "application/vnd.oasis.opendocument.presentation": ".odp",
+        "application/vnd.oasis.opendocument.presentation-template": ".otp",
+        "text/html": ".html",
+        "application/xhtml+xml": ".xhtml",
+        "text/markdown": ".md",
+        "text/x-markdown": ".md",
+        "text/plain": ".txt",
+        "text/csv": ".csv",
+        "application/json": ".json",
+        "application/xml": ".xml",
+        "message/rfc822": ".eml",
+        "application/epub+zip": ".epub",
+        "text/asciidoc": ".adoc",
+        "text/vtt": ".vtt",
+        "text/x-tex": ".tex",
+        "application/x-tex": ".tex",
+        "text/x-latex": ".tex",
+        "application/vnd.box.boxnote": ".boxnote",
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/tiff": ".tiff",
+        "image/gif": ".gif",
+        "image/bmp": ".bmp",
+        "image/webp": ".webp",
+    }
+
+    _FILENAME_METADATA_KEYS = ("opendma:Name", "opendma:Title")
+
+    def __init__(
+        self,
+        converter: Any = None,
+        convert_kwargs: dict[str, Any] | None = None,
+        export_type: Any = None,
+        md_export_kwargs: dict[str, Any] | None = None,
+        chunker: Any = None,
+        meta_extractor: Any = None,
+    ) -> None:
+        """Initialize the handler.
+
+        Args:
+            converter: Optional Docling converter instance.
+            convert_kwargs: Optional keyword arguments for Docling conversion.
+            export_type: Optional Docling export mode. Defaults to DoclingLoader's
+                default, currently ExportType.DOC_CHUNKS.
+            md_export_kwargs: Optional Markdown export keyword arguments.
+            chunker: Optional Docling chunker for doc-chunk mode.
+            meta_extractor: Optional Docling metadata extractor.
+        """
+        self.converter = converter
+        self.convert_kwargs = convert_kwargs
+        self.export_type = export_type
+        self.md_export_kwargs = md_export_kwargs
+        self.chunker = chunker
+        self.meta_extractor = meta_extractor
+
+    def can_handle(self, mime_type: str) -> bool:
+        """Check if this handler can process the given MIME type."""
+        return mime_type in self.SUPPORTED_MIME_TYPES
+
+    def _metadata_filename(self, mime_type: str, metadata: dict[str, Any]) -> str:
+        filename = None
+        for key in self._FILENAME_METADATA_KEYS:
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                filename = value
+                break
+
+        filename = self._sanitize_filename(filename or "document")
+        stem = Path(filename).stem or filename
+        extension = self.SUPPORTED_MIME_TYPES[mime_type]
+
+        return f"{stem}{extension}"
+
+    def _sanitize_filename(self, filename: str) -> str:
+        sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", filename).strip(" .")
+        return sanitized or "document"
+
+    def transform(
+        self,
+        content: bytes,
+        mime_type: str,
+        metadata: dict[str, Any],
+    ) -> list[Document]:
+        """Transform content using DoclingLoader."""
+        try:
+            from langchain_docling.loader import DoclingLoader
+        except ImportError as e:
+            raise ImportError(
+                "DoclingLoader not found. Install with: pip install langchain-opendma[docling]"
+            ) from e
+
+        metadata_filename = self._metadata_filename(mime_type, metadata)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file_path = Path(temp_dir, metadata_filename)
+            temp_file_path.write_bytes(content)
+
+            loader_kwargs: dict[str, Any] = {
+                "file_path": str(temp_file_path),
+                "converter": self.converter,
+                "convert_kwargs": self.convert_kwargs,
+                "md_export_kwargs": self.md_export_kwargs,
+                "chunker": self.chunker,
+                "meta_extractor": self.meta_extractor,
+            }
+            if self.export_type is not None:
+                loader_kwargs["export_type"] = self.export_type
+
+            loader = DoclingLoader(**loader_kwargs)
+            docs: list[Document] = loader.load()
+
+        for doc in docs:
+            doc.metadata = {**doc.metadata, **metadata}
+
+        return docs

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -10,6 +11,7 @@ import pytest
 from langchain_core.documents import Document
 
 from langchain_opendma.content_handlers import (
+    DoclingLoaderContentHandler,
     PlainTextHandler,
     UnstructuredLoaderContentHandler,
 )
@@ -379,3 +381,185 @@ class TestUnstructuredLoaderContentHandler:
         assert calls[0]["max_characters"] == 4000
         assert file_contents == [b"test content"]
         assert documents[0].metadata["source"] == "opendma://repo/123"
+
+
+class TestDoclingLoaderContentHandler:
+    """Test cases for DoclingLoaderContentHandler."""
+
+    def test_init_with_defaults(self) -> None:
+        """Test handler initialization with default parameters."""
+        handler = DoclingLoaderContentHandler()
+        assert handler.converter is None
+        assert handler.convert_kwargs is None
+        assert handler.export_type is None
+        assert handler.md_export_kwargs is None
+        assert handler.chunker is None
+        assert handler.meta_extractor is None
+
+    def test_init_with_all_params(self) -> None:
+        """Test handler initialization with Docling parameters."""
+        converter = object()
+        chunker = object()
+        meta_extractor = object()
+        handler = DoclingLoaderContentHandler(
+            converter=converter,
+            convert_kwargs={"raises_on_error": False},
+            export_type="markdown",
+            md_export_kwargs={"image_placeholder": ""},
+            chunker=chunker,
+            meta_extractor=meta_extractor,
+        )
+
+        assert handler.converter is converter
+        assert handler.convert_kwargs == {"raises_on_error": False}
+        assert handler.export_type == "markdown"
+        assert handler.md_export_kwargs == {"image_placeholder": ""}
+        assert handler.chunker is chunker
+        assert handler.meta_extractor is meta_extractor
+
+    def test_can_handle_core_formats(self) -> None:
+        """Test that handler accepts core Docling document MIME types."""
+        handler = DoclingLoaderContentHandler()
+        assert handler.can_handle("application/pdf") is True
+        assert (
+            handler.can_handle(
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+            is True
+        )
+        assert (
+            handler.can_handle(
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            )
+            is True
+        )
+        assert (
+            handler.can_handle(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            is True
+        )
+        assert handler.can_handle("text/html") is True
+        assert handler.can_handle("text/plain") is True
+        assert handler.can_handle("text/markdown") is True
+        assert handler.can_handle("text/csv") is True
+        assert handler.can_handle("message/rfc822") is True
+        assert handler.can_handle("application/epub+zip") is True
+
+    def test_can_handle_image_formats(self) -> None:
+        """Test that handler accepts Docling image MIME types."""
+        handler = DoclingLoaderContentHandler()
+        assert handler.can_handle("image/jpeg") is True
+        assert handler.can_handle("image/png") is True
+        assert handler.can_handle("image/tiff") is True
+        assert handler.can_handle("image/gif") is True
+        assert handler.can_handle("image/bmp") is True
+        assert handler.can_handle("image/webp") is True
+
+    def test_cannot_handle_unsupported_formats(self) -> None:
+        """Test that handler rejects unsupported MIME types."""
+        handler = DoclingLoaderContentHandler()
+        assert handler.can_handle("application/msword") is False
+        assert handler.can_handle("video/mp4") is False
+        assert handler.can_handle("audio/mpeg") is False
+        assert handler.can_handle("application/zip") is False
+
+    def test_transform_without_docling_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test transform raises ImportError if langchain-docling is not installed."""
+        monkeypatch.delitem(sys.modules, "langchain_docling", raising=False)
+        monkeypatch.delitem(sys.modules, "langchain_docling.loader", raising=False)
+
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "langchain_docling.loader":
+                raise ImportError("missing docling")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+
+        handler = DoclingLoaderContentHandler()
+        with pytest.raises(ImportError, match="langchain-opendma\\[docling\\]"):
+            handler.transform(b"test content", "application/pdf", {"source": "test.pdf"})
+
+    def test_transform_uses_temporary_file_path_and_merges_metadata(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test transform passes a real file path to DoclingLoader and merges metadata."""
+        calls: list[dict[str, Any]] = []
+        file_contents: list[bytes] = []
+
+        class FakeDoclingLoader:
+            def __init__(self, **kwargs: Any) -> None:
+                calls.append(kwargs)
+
+            def load(self) -> list[Document]:
+                file_path = Path(calls[0]["file_path"])
+                file_contents.append(file_path.read_bytes())
+                return [Document(page_content="parsed", metadata={"source": str(file_path)})]
+
+        fake_package = ModuleType("langchain_docling")
+        fake_module = ModuleType("langchain_docling.loader")
+        fake_module.DoclingLoader = FakeDoclingLoader  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "langchain_docling", fake_package)
+        monkeypatch.setitem(sys.modules, "langchain_docling.loader", fake_module)
+
+        converter = object()
+        chunker = object()
+        handler = DoclingLoaderContentHandler(
+            converter=converter,
+            convert_kwargs={"raises_on_error": False},
+            export_type="markdown",
+            md_export_kwargs={"image_placeholder": ""},
+            chunker=chunker,
+        )
+        documents = handler.transform(
+            b"test content",
+            "application/pdf",
+            {"opendma:Title": "quarterly report", "source": "opendma://repo/123"},
+        )
+
+        assert Path(calls[0]["file_path"]).name == "quarterly report.pdf"
+        assert Path(calls[0]["file_path"]).is_absolute()
+        assert calls[0]["converter"] is converter
+        assert calls[0]["convert_kwargs"] == {"raises_on_error": False}
+        assert calls[0]["export_type"] == "markdown"
+        assert calls[0]["md_export_kwargs"] == {"image_placeholder": ""}
+        assert calls[0]["chunker"] is chunker
+        assert file_contents == [b"test content"]
+        assert documents == [
+            Document(
+                page_content="parsed",
+                metadata={"source": "opendma://repo/123", "opendma:Title": "quarterly report"},
+            )
+        ]
+
+    def test_transform_overwrites_metadata_filename_extension(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test MIME type extension wins over an extension from ECM metadata."""
+        calls: list[dict[str, Any]] = []
+
+        class FakeDoclingLoader:
+            def __init__(self, **kwargs: Any) -> None:
+                calls.append(kwargs)
+
+            def load(self) -> list[Document]:
+                return []
+
+        fake_package = ModuleType("langchain_docling")
+        fake_module = ModuleType("langchain_docling.loader")
+        fake_module.DoclingLoader = FakeDoclingLoader  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "langchain_docling", fake_package)
+        monkeypatch.setitem(sys.modules, "langchain_docling.loader", fake_module)
+
+        handler = DoclingLoaderContentHandler()
+        handler.transform(
+            b"test content",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            {"opendma:Title": "myfile.txt"},
+        )
+
+        assert Path(calls[0]["file_path"]).name == "myfile.docx"

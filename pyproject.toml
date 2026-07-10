@@ -38,8 +38,12 @@ unstructured = [
     "unstructured-client>=0.28.0",
     "unstructured[pdf,doc,docx,ppt,pptx,xlsx,rtf,odt,epub,image,csv,tsv,md,org,rst]>=0.16.0",
 ]
+docling = [
+    "langchain-docling>=1.0.0",
+]
 all = [
     "langchain-opendma[unstructured]",
+    "langchain-opendma[docling]",
 ]
 
 [build-system]
