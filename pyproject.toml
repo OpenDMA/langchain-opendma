@@ -33,6 +33,14 @@ dev = [
     "ruff>=0.4.0",
     "mypy>=1.9.0",
 ]
+unstructured = [
+    "langchain-unstructured>=0.2.0",
+    "unstructured-client>=0.28.0",
+    "unstructured[pdf,doc,docx,ppt,pptx,xlsx,rtf,odt,epub,image,csv,tsv,md,org,rst]>=0.16.0",
+]
+all = [
+    "langchain-opendma[unstructured]",
+]
 
 [build-system]
 requires = ["uv_build>=0.11.26,<0.12.0"]
