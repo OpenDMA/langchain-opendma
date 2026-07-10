@@ -67,6 +67,47 @@ class TestOpenDMALoader:
         assert len(loader.content_handlers) == 1
         assert loader.content_handlers[0] is handler
 
+    def test_init_with_error_handling_options(self) -> None:
+        """Test initialization with error handling options."""
+        loader = OpenDMALoader(
+            endpoint="http://localhost:8086/opendma",
+            username="admin",
+            password="admin",
+            repository_id="test-repo",
+            raise_on_error=True,
+            warn_on_error=False,
+        )
+        assert loader.raise_on_error is True
+        assert loader.warn_on_error is False
+
+    def test_handle_error_warns_by_default(self) -> None:
+        """Test non-fatal errors emit warnings by default."""
+        loader = OpenDMALoader(
+            endpoint="http://localhost:8086/opendma",
+            username="admin",
+            password="admin",
+            repository_id="test-repo",
+        )
+
+        with pytest.warns(RuntimeWarning, match="failed: missing parser dependency"):
+            loader._handle_error("failed", ImportError("missing parser dependency"))
+
+    def test_handle_error_can_raise(self) -> None:
+        """Test raise_on_error re-raises the original exception."""
+        loader = OpenDMALoader(
+            endpoint="http://localhost:8086/opendma",
+            username="admin",
+            password="admin",
+            repository_id="test-repo",
+            raise_on_error=True,
+        )
+        exc = ImportError("missing parser dependency")
+
+        with pytest.raises(ImportError) as raised:
+            loader._handle_error("failed", exc)
+
+        assert raised.value is exc
+
 
 # Note: Full integration tests with actual OpenDMA document loading
 # will be implemented in tests/integration/ once test environment is available.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import warnings
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
@@ -60,6 +61,8 @@ class OpenDMALoader(BaseLoader):
         content_handlers: list[ContentHandler] | None = None,
         include_no_content: bool = False,
         include_unhandled_content: bool = False,
+        raise_on_error: bool = False,
+        warn_on_error: bool = True,
     ) -> None:
         """Initialize the OpenDMA loader.
 
@@ -79,6 +82,10 @@ class OpenDMALoader(BaseLoader):
                 Documents with content_state="Missing"
             include_unhandled_content: If True, include documents with unsupported
                 MIME types as empty Documents with content_state="Unsupported"
+            raise_on_error: If True, raise exceptions while loading or transforming
+                individual documents instead of continuing with the next document
+            warn_on_error: If True, emit a warning when an individual document cannot
+                be loaded or transformed and raise_on_error is False
         """
         self.endpoint = endpoint
         self.username = username
@@ -92,9 +99,17 @@ class OpenDMALoader(BaseLoader):
         self.content_handlers = content_handlers or [PlainTextHandler()]
         self.include_no_content = include_no_content
         self.include_unhandled_content = include_unhandled_content
+        self.raise_on_error = raise_on_error
+        self.warn_on_error = warn_on_error
 
         if self.query and not self.query_language:
             raise ValueError("query_language must be specified when query is provided")
+
+    def _handle_error(self, message: str, exc: Exception) -> None:
+        if self.raise_on_error:
+            raise exc
+        if self.warn_on_error:
+            warnings.warn(f"{message}: {exc}", RuntimeWarning, stacklevel=3)
 
     def _create_session(self) -> Any:
         """Create and return an OpenDMA session.
@@ -252,8 +267,15 @@ class OpenDMALoader(BaseLoader):
 
         content_bytes = stream.read()
 
-        # Transform content using handler
-        documents = handler.transform(content_bytes, mime_type, metadata)
+        try:
+            documents = handler.transform(content_bytes, mime_type, metadata)
+        except Exception as exc:
+            self._handle_error(
+                f"OpenDMALoader failed to transform document {metadata.get('source')} "
+                f"with MIME type {mime_type}",
+                exc,
+            )
+            return
 
         # Add content_state to all documents returned by handler
         for doc in documents:
@@ -284,8 +306,8 @@ class OpenDMALoader(BaseLoader):
                 obj = session.get_object(repo_id, OdmaId(doc_id), None)
                 if isinstance(obj, OdmaDocument):
                     yield from self._transform_document(session, obj)
-            except Exception:
-                # Silently skip invalid document IDs
+            except Exception as exc:
+                self._handle_error(f"OpenDMALoader failed to load document {doc_id}", exc)
                 continue
 
     def _load_from_folders(
@@ -312,7 +334,13 @@ class OpenDMALoader(BaseLoader):
         # Load documents in this folder
         for containee in folder.get_containees():
             if isinstance(containee, OdmaDocument):
-                yield from self._transform_document(session, containee)
+                try:
+                    yield from self._transform_document(session, containee)
+                except Exception as exc:
+                    self._handle_error(
+                        f"OpenDMALoader failed to load document {containee.get_id()}",
+                        exc,
+                    )
 
         # Recurse into subfolders if requested
         if recurse:
@@ -321,7 +349,13 @@ class OpenDMALoader(BaseLoader):
                 current_folder = folders_to_process.pop()
                 for containee in current_folder.get_containees():
                     if isinstance(containee, OdmaDocument):
-                        yield from self._transform_document(session, containee)
+                        try:
+                            yield from self._transform_document(session, containee)
+                        except Exception as exc:
+                            self._handle_error(
+                                f"OpenDMALoader failed to load document {containee.get_id()}",
+                                exc,
+                            )
                 folders_to_process.extend(current_folder.get_sub_folders())
 
     def _load_from_folder_ids(self, session: Any) -> Iterator[Document]:
@@ -348,8 +382,8 @@ class OpenDMALoader(BaseLoader):
                 obj = session.get_object(repo_id, OdmaId(folder_id), None)
                 if isinstance(obj, OdmaFolder):
                     yield from self._load_from_folders(session, obj, self.recurse_folders)
-            except Exception:
-                # Silently skip invalid folder IDs
+            except Exception as exc:
+                self._handle_error(f"OpenDMALoader failed to load folder {folder_id}", exc)
                 continue
 
     def _load_from_query(self, session: Any) -> Iterator[Document]:
@@ -376,7 +410,10 @@ class OpenDMALoader(BaseLoader):
 
         for obj in search_result.get_objects():
             if isinstance(obj, OdmaDocument):
-                yield from self._transform_document(session, obj)
+                try:
+                    yield from self._transform_document(session, obj)
+                except Exception as exc:
+                    self._handle_error(f"OpenDMALoader failed to load document {obj.get_id()}", exc)
 
     def lazy_load(self) -> Iterator[Document]:
         """Load documents lazily (streaming).
