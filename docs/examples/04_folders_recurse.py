@@ -1,5 +1,5 @@
 """
-Basic usage example of OpenDMALoader connecting to the tutorial-xmlrepo.
+Example of OpenDMALoader recursing a folder hierarchy and loading all documents.
 
 Run the tutorial REST service docker container:
 ```
