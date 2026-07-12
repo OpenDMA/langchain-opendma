@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from langchain_opendma.content_handlers import (
     ContentHandler,
+    DoclingLoaderContentHandler,
     PlainTextHandler,
     UnstructuredLoaderContentHandler,
-    DoclingLoaderContentHandler,
 )
 from langchain_opendma.loaders import OpenDMALoader
 
