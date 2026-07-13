@@ -167,7 +167,7 @@ class UnstructuredLoaderContentHandler:
         "image/heic": ".heic",
     }
 
-    _FILENAME_METADATA_KEYS = ("opendma:Name", "opendma:Title")
+    _FILENAME_METADATA_KEYS = ("content_file_name", "opendma:Name", "opendma:Title")
 
     def __init__(
         self,
@@ -351,7 +351,7 @@ class DoclingLoaderContentHandler:
         "image/webp": ".webp",
     }
 
-    _FILENAME_METADATA_KEYS = ("opendma:Name", "opendma:Title")
+    _FILENAME_METADATA_KEYS = ("content_file_name", "opendma:Name", "opendma:Title")
 
     def __init__(
         self,
