@@ -217,7 +217,7 @@ loader = OpenDMALoader(
 Handlers are checked in list order. The first handler whose `can_handle()` method
 accepts the MIME type is used.
 
-## Plain Text
+### Plain Text
 
 `PlainTextHandler` is the default handler.
 
@@ -228,7 +228,7 @@ from langchain_opendma import PlainTextHandler
 It supports `text/plain` and returns one LangChain `Document` for each OpenDMA
 document.
 
-## Unstructured
+### Unstructured
 
 Use `UnstructuredLoaderContentHandler` when you want broad format support and
 access to Unstructured partitioning and chunking options.
@@ -276,7 +276,7 @@ handler = UnstructuredLoaderContentHandler(
 When Unstructured chunking is configured, one repository document may produce
 multiple LangChain `Document` objects.
 
-## Docling
+### Docling
 
 Use `DoclingLoaderContentHandler` when you want Docling's document conversion
 pipeline and export modes.
@@ -325,7 +325,7 @@ handler = DoclingLoaderContentHandler(
 )
 ```
 
-## Choosing a Content Handler
+### Choosing a Content Handler
 
 Use the default `PlainTextHandler` when the repository content is already plain
 text or when you want a minimal dependency footprint.
