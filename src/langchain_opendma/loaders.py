@@ -438,14 +438,41 @@ class OpenDMALoader(BaseLoader):
         finally:
             session.close()
 
-    def _lazy_load_extra(self, session: Any) -> Iterator[Document]:  # noqa: ARG002
+    def _lazy_load_extra(self, session: Any) -> Iterator[Document]:
         """Hook for subclasses to add additional loading logic.
+
+        Subclasses can override this method when they need full control over the
+        returned LangChain Documents. Subclasses that only locate additional
+        OpenDMA objects should override _lazy_load_extra_objects() instead, so
+        the base loader can reuse the normal transformation and error handling.
 
         Args:
             session: OpenDMA session
 
         Yields:
             LangChain Document objects
+        """
+        try:
+            from opendma.api import OdmaDocument
+        except ImportError as e:
+            raise ImportError("opendma-api package not found") from e
+
+        for obj in self._lazy_load_extra_objects(session):
+            if isinstance(obj, OdmaDocument):
+                try:
+                    yield from self._transform_document(session, obj)
+                except Exception as exc:
+                    self._handle_error(f"OpenDMALoader failed to load document {obj.get_id()}", exc)
+
+    def _lazy_load_extra_objects(self, session: Any) -> Iterator[Any]:  # noqa: ARG002
+        """Hook for subclasses to provide additional OpenDMA objects.
+
+        Args:
+            session: OpenDMA session
+
+        Yields:
+            OpenDMA objects. Only OdmaDocument objects are transformed by the base
+            implementation.
         """
         return
         yield  # Make this a generator
@@ -504,3 +531,96 @@ class OpenDMALoader(BaseLoader):
             List of LangChain Document objects
         """
         return [doc async for doc in self.alazy_load()]
+
+
+class AlfrescoLoader(OpenDMALoader):
+    """Load documents from Alfresco via OpenDMA.
+
+    This loader adds Alfresco-specific defaults and site loading convenience on
+    top of OpenDMALoader.
+    """
+
+    def __init__(
+        self,
+        endpoint: str,
+        username: str,
+        password: str,
+        repository_id: str = "Alfresco",
+        document_ids: list[str] | None = None,
+        folder_ids: list[str] | None = None,
+        recurse_folders: bool = False,
+        query: str | None = None,
+        query_language: str | None = "alfresco:afts",
+        sites: list[str] | None = None,
+        content_handlers: list[ContentHandler] | None = None,
+        include_no_content: bool = False,
+        include_unhandled_content: bool = False,
+        raise_on_error: bool = False,
+        warn_on_error: bool = True,
+    ) -> None:
+        """Initialize the Alfresco loader.
+
+        Args:
+            endpoint: OpenDMA REST service endpoint.
+            username: Username for authentication.
+            password: Password for authentication.
+            repository_id: OpenDMA repository ID. Defaults to "Alfresco".
+            document_ids: Optional list of document IDs to load.
+            folder_ids: Optional list of folder IDs to load documents from.
+            recurse_folders: If True, recursively load from folder_ids.
+            query: Optional Alfresco query. Defaults to the alfresco:afts query language.
+            query_language: Query language for query. Defaults to "alfresco:afts".
+            sites: Optional Alfresco site short names. When set, all documents below
+                matching site folders are loaded recursively.
+            content_handlers: List of content handlers for transforming content.
+            include_no_content: Include documents without content as empty documents.
+            include_unhandled_content: Include documents with unsupported MIME types as
+                empty documents.
+            raise_on_error: Raise exceptions while loading or transforming individual
+                documents instead of continuing.
+            warn_on_error: Emit warnings for skipped documents when raise_on_error is False.
+        """
+        super().__init__(
+            endpoint=endpoint,
+            username=username,
+            password=password,
+            repository_id=repository_id,
+            document_ids=document_ids,
+            folder_ids=folder_ids,
+            recurse_folders=recurse_folders,
+            query=query,
+            query_language=query_language,
+            content_handlers=content_handlers,
+            include_no_content=include_no_content,
+            include_unhandled_content=include_unhandled_content,
+            raise_on_error=raise_on_error,
+            warn_on_error=warn_on_error,
+        )
+        self.sites = sites
+
+    def _lazy_load_extra_objects(self, session: Any) -> Iterator[Any]:
+        """Load documents recursively from configured Alfresco sites."""
+        if not self.sites:
+            return
+
+        try:
+            from opendma.api import OdmaFolder, OdmaId, OdmaQName
+        except ImportError as e:
+            raise ImportError("opendma-api package not found") from e
+
+        query_parts = [f'=cm:name:"{site}"' for site in self.sites]
+        afts_query = 'TYPE:"st:site" AND (' + " OR ".join(query_parts) + ")"
+
+        repo_id = OdmaId(self.repository_id)
+        query_language = OdmaQName.from_string("alfresco:afts")
+        search_result = session.search(repo_id, query_language, afts_query)
+
+        for site in search_result.get_objects():
+            if not isinstance(site, OdmaFolder):
+                continue
+            for subfolder in site.get_sub_folders():
+                folders_to_process = [subfolder]
+                while folders_to_process:
+                    current_folder = folders_to_process.pop()
+                    yield from current_folder.get_containees()
+                    folders_to_process.extend(current_folder.get_sub_folders())

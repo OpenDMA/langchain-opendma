@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import sys
+from types import ModuleType
+from typing import Any
+
 import pytest
 
-from langchain_opendma import OpenDMALoader
+from langchain_opendma import AlfrescoLoader, OpenDMALoader
 
 
 class TestOpenDMALoader:
@@ -109,6 +113,108 @@ class TestOpenDMALoader:
         assert raised.value is exc
 
 
-# Note: Full integration tests with actual OpenDMA document loading
-# will be implemented in tests/integration/ once test environment is available.
-# These tests verify the loader's structure and initialization logic.
+class TestAlfrescoLoader:
+    """Test cases for AlfrescoLoader."""
+
+    def test_init_with_defaults(self) -> None:
+        """Test Alfresco defaults for repository and query language."""
+        loader = AlfrescoLoader(
+            endpoint="http://localhost:8086/opendma",
+            username="admin",
+            password="admin",
+        )
+
+        assert loader.repository_id == "Alfresco"
+        assert loader.query_language == "alfresco:afts"
+        assert loader.sites is None
+
+    def test_init_with_sites(self) -> None:
+        """Test initialization with Alfresco site names."""
+        loader = AlfrescoLoader(
+            endpoint="http://localhost:8086/opendma",
+            username="admin",
+            password="admin",
+            sites=["swsdp", "marketing"],
+        )
+
+        assert loader.sites == ["swsdp", "marketing"]
+
+    def test_lazy_load_extra_objects_finds_documents_below_sites(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test Alfresco site loading recursively yields site documents."""
+
+        class FakeOdmaId:
+            def __init__(self, value: str) -> None:
+                self.value = value
+
+        class FakeOdmaQName:
+            def __init__(self, value: str) -> None:
+                self.value = value
+
+            @classmethod
+            def from_string(cls, value: str) -> FakeOdmaQName:
+                return cls(value)
+
+        class FakeOdmaFolder:
+            def __init__(
+                self,
+                containees: list[Any] | None = None,
+                subfolders: list[FakeOdmaFolder] | None = None,
+            ) -> None:
+                self._containees = containees or []
+                self._subfolders = subfolders or []
+
+            def get_containees(self) -> list[Any]:
+                return self._containees
+
+            def get_sub_folders(self) -> list[FakeOdmaFolder]:
+                return self._subfolders
+
+        class FakeSearchResult:
+            def __init__(self, objects: list[Any]) -> None:
+                self._objects = objects
+
+            def get_objects(self) -> list[Any]:
+                return self._objects
+
+        class FakeSession:
+            def __init__(self, search_result: FakeSearchResult) -> None:
+                self.search_result = search_result
+                self.search_calls: list[tuple[FakeOdmaId, FakeOdmaQName, str]] = []
+
+            def search(
+                self,
+                repo_id: FakeOdmaId,
+                query_language: FakeOdmaQName,
+                query: str,
+            ) -> FakeSearchResult:
+                self.search_calls.append((repo_id, query_language, query))
+                return self.search_result
+
+        fake_api = ModuleType("opendma.api")
+        fake_api.OdmaFolder = FakeOdmaFolder  # type: ignore[attr-defined]
+        fake_api.OdmaId = FakeOdmaId  # type: ignore[attr-defined]
+        fake_api.OdmaQName = FakeOdmaQName  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "opendma.api", fake_api)
+
+        doc1 = object()
+        doc2 = object()
+        nested_folder = FakeOdmaFolder(containees=[doc2])
+        document_library = FakeOdmaFolder(containees=[doc1], subfolders=[nested_folder])
+        site = FakeOdmaFolder(subfolders=[document_library])
+        session = FakeSession(FakeSearchResult([site, object()]))
+        loader = AlfrescoLoader(
+            endpoint="http://localhost:8086/opendma",
+            username="admin",
+            password="admin",
+            sites=["swsdp", "marketing"],
+        )
+
+        objects = list(loader._lazy_load_extra_objects(session))
+
+        assert objects == [doc1, doc2]
+        repo_id, query_language, query = session.search_calls[0]
+        assert repo_id.value == "Alfresco"
+        assert query_language.value == "alfresco:afts"
+        assert query == 'TYPE:"st:site" AND (=cm:name:"swsdp" OR =cm:name:"marketing")'

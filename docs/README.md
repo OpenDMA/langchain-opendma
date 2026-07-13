@@ -101,6 +101,62 @@ loader = OpenDMALoader(
 The query language and query syntax depend on the OpenDMA repository
 implementation.
 
+## AlfrescoLoader
+
+`AlfrescoLoader` is a convenience subclass of `OpenDMALoader` for Alfresco
+repositories exposed through OpenDMA.
+
+It adds Alfresco-specific defaults:
+
+- `repository_id="Alfresco"`
+- `query_language="alfresco:afts"`
+
+It also adds `sites`, which accepts Alfresco site short names and loads all
+documents below the matching site folders recursively.
+
+```python
+from langchain_opendma import AlfrescoLoader
+
+loader = AlfrescoLoader(
+    endpoint="http://localhost:7070/opendma/alf",
+    username="admin",
+    password="admin",
+    sites=["swsdp"],
+)
+
+documents = loader.load()
+```
+
+You can combine `AlfrescoLoader` with the same content handlers as
+`OpenDMALoader`:
+
+```python
+from langchain_opendma import AlfrescoLoader, UnstructuredLoaderContentHandler
+
+handler = UnstructuredLoaderContentHandler(
+    chunking_strategy="by_title",
+    max_characters=4000,
+    new_after_n_chars=3000,
+    combine_text_under_n_chars=1000,
+)
+
+loader = AlfrescoLoader(
+    endpoint="http://localhost:7070/opendma/alf",
+    username="admin",
+    password="admin",
+    sites=["swsdp"],
+    content_handlers=[handler],
+)
+```
+
+`AlfrescoLoader` still supports the generic loading options such as
+`document_ids`, `folder_ids`, `query`, `include_no_content`, and
+`raise_on_error`.
+
+When `sites` is set, the loader searches Alfresco sites by name with AFTS and
+then recursively traverses the site folders. For setup instructions and a
+runnable example, see [examples/README.md](examples/README.md).
+
 ## Content States
 
 Content state is stored in `document.metadata["content_state"]`:
