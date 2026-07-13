@@ -17,7 +17,7 @@ loader = OpenDMALoader(
     username="ignored",
     password="ignored",
     repository_id="sample-repo",
-    document_ids=["hello-world-document", "sample-document-a1"],
+    document_ids=["hello-world-document", "sample-document-a1", "sample-no-content-document"],
     include_no_content=True,
     include_unhandled_content=True,
 )
