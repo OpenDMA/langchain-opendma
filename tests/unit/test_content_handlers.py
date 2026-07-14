@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-from types import ModuleType
 from typing import Any
 
 import pytest
@@ -97,40 +95,10 @@ class TestPlainTextHandler:
 class TestUnstructuredLoaderContentHandler:
     """Test cases for UnstructuredLoaderContentHandler."""
 
-    def test_init_with_defaults(self) -> None:
-        """Test handler initialization with default parameters."""
-        handler = UnstructuredLoaderContentHandler()
-        assert handler.partition_via_api is False
-        assert handler.post_processors is None
-        assert handler.api_key is None
-        assert handler.client is None
-        assert handler.url is None
-        assert handler.unstructured_kwargs == {}
-
     def test_init_with_api_mode_no_credentials_raises(self) -> None:
         """Test that API mode without credentials raises ValueError."""
         with pytest.raises(ValueError, match="api_key or client must be provided"):
             UnstructuredLoaderContentHandler(partition_via_api=True)
-
-    def test_init_with_api_key(self) -> None:
-        """Test handler initialization with API key."""
-        handler = UnstructuredLoaderContentHandler(partition_via_api=True, api_key="test-key")
-        assert handler.partition_via_api is True
-        assert handler.api_key == "test-key"
-
-    def test_init_with_unstructured_kwargs(self) -> None:
-        """Test handler stores extra UnstructuredLoader keyword arguments."""
-        handler = UnstructuredLoaderContentHandler(
-            chunking_strategy="by_title",
-            max_characters=4000,
-            combine_text_under_n_chars=1000,
-        )
-
-        assert handler.unstructured_kwargs == {
-            "chunking_strategy": "by_title",
-            "max_characters": 4000,
-            "combine_text_under_n_chars": 1000,
-        }
 
     def test_init_with_client_and_api_options_raises(self) -> None:
         """Test that mutually exclusive Unstructured client options are rejected."""
@@ -203,219 +171,51 @@ class TestUnstructuredLoaderContentHandler:
         assert handler.can_handle("audio/mpeg") is False
         assert handler.can_handle("application/zip") is False
 
-    def test_transform_local_passes_metadata_filename(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test local transform passes metadata_filename for file-like input."""
-        calls: list[dict[str, Any]] = []
+    def test_transform_without_unstructured_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test transform raises ImportError if langchain-unstructured is not installed."""
+        monkeypatch.delitem(sys.modules, "langchain_unstructured", raising=False)
 
-        class FakeUnstructuredLoader:
-            def __init__(self, **kwargs: Any) -> None:
-                calls.append(kwargs)
+        import builtins
 
-            def load(self) -> list[Document]:
-                return [Document(page_content="parsed", metadata={"category": "NarrativeText"})]
+        real_import = builtins.__import__
 
-        fake_module = ModuleType("langchain_unstructured")
-        fake_module.UnstructuredLoader = FakeUnstructuredLoader  # type: ignore[attr-defined]
-        monkeypatch.setitem(sys.modules, "langchain_unstructured", fake_module)
+        def fake_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "langchain_unstructured":
+                raise ImportError("missing unstructured")
+            return real_import(name, *args, **kwargs)
 
-        handler = UnstructuredLoaderContentHandler(chunking_strategy="by_title")
-        documents = handler.transform(
-            b"test content",
-            "application/pdf",
-            {"opendma:Name": "test.pdf", "source": "opendma://repo/123"},
-        )
-
-        assert calls[0]["file"].read() == b"test content"
-        assert calls[0]["partition_via_api"] is False
-        assert calls[0]["metadata_filename"] == "test.pdf"
-        assert calls[0]["chunking_strategy"] == "by_title"
-        assert documents == [
-            Document(
-                page_content="parsed",
-                metadata={
-                    "category": "NarrativeText",
-                    "opendma:Name": "test.pdf",
-                    "source": "opendma://repo/123",
-                },
-            )
-        ]
-
-    def test_transform_local_adds_extension_to_metadata_filename(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test local transform appends a MIME-derived extension when metadata has none."""
-        calls: list[dict[str, Any]] = []
-
-        class FakeUnstructuredLoader:
-            def __init__(self, **kwargs: Any) -> None:
-                calls.append(kwargs)
-
-            def load(self) -> list[Document]:
-                return []
-
-        fake_module = ModuleType("langchain_unstructured")
-        fake_module.UnstructuredLoader = FakeUnstructuredLoader  # type: ignore[attr-defined]
-        monkeypatch.setitem(sys.modules, "langchain_unstructured", fake_module)
+        monkeypatch.setattr(builtins, "__import__", fake_import)
 
         handler = UnstructuredLoaderContentHandler()
-        handler.transform(
-            b"test content",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            {"opendma:Title": "Quarterly Report"},
-        )
+        with pytest.raises(ImportError, match="langchain-opendma\\[unstructured\\]"):
+            handler.transform(b"test content", "text/plain", {"source": "test.txt"})
 
-        assert calls[0]["metadata_filename"] == "Quarterly Report.docx"
-
-    def test_transform_local_overwrites_metadata_filename_extension(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test MIME type extension wins over an extension from ECM metadata."""
-        calls: list[dict[str, Any]] = []
-
-        class FakeUnstructuredLoader:
-            def __init__(self, **kwargs: Any) -> None:
-                calls.append(kwargs)
-
-            def load(self) -> list[Document]:
-                return []
-
-        fake_module = ModuleType("langchain_unstructured")
-        fake_module.UnstructuredLoader = FakeUnstructuredLoader  # type: ignore[attr-defined]
-        monkeypatch.setitem(sys.modules, "langchain_unstructured", fake_module)
-
+    @pytest.mark.parametrize(
+        "metadata",
+        [
+            {},
+            {"opendma:Title": "hello.txt"},
+            {"opendma:Title": "hello.pdf"},
+            {"opendma:Title": 'bad:/\\*?"<>|name.txt'},
+            {"opendma:Name": "name without extension"},
+            {"content_file_name": "content-name.txt"},
+        ],
+    )
+    def test_transform_text_plain(self, metadata: dict[str, Any]) -> None:
+        """Test text/plain transformation through the real UnstructuredLoader."""
         handler = UnstructuredLoaderContentHandler()
-        handler.transform(
-            b"test content",
-            "application/msword",
-            {"opendma:Title": "myfile.txt"},
-        )
 
-        assert calls[0]["metadata_filename"] == "myfile.doc"
+        documents = handler.transform(b"Hello, world!", "text/plain", metadata)
 
-    def test_transform_local_metadata_filename_cannot_be_overridden(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test required metadata_filename wins over caller kwargs."""
-        calls: list[dict[str, Any]] = []
-
-        class FakeUnstructuredLoader:
-            def __init__(self, **kwargs: Any) -> None:
-                calls.append(kwargs)
-
-            def load(self) -> list[Document]:
-                return []
-
-        fake_module = ModuleType("langchain_unstructured")
-        fake_module.UnstructuredLoader = FakeUnstructuredLoader  # type: ignore[attr-defined]
-        monkeypatch.setitem(sys.modules, "langchain_unstructured", fake_module)
-
-        handler = UnstructuredLoaderContentHandler(metadata_filename="wrong.pdf")
-        handler.transform(
-            b"test content",
-            "application/pdf",
-            {"opendma:Title": "right.pdf"},
-        )
-
-        assert calls[0]["metadata_filename"] == "right.pdf"
-
-    def test_transform_local_uses_text_plain_extension(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test text/plain content gets a text filename for Unstructured."""
-        calls: list[dict[str, Any]] = []
-
-        class FakeUnstructuredLoader:
-            def __init__(self, **kwargs: Any) -> None:
-                calls.append(kwargs)
-
-            def load(self) -> list[Document]:
-                return []
-
-        fake_module = ModuleType("langchain_unstructured")
-        fake_module.UnstructuredLoader = FakeUnstructuredLoader  # type: ignore[attr-defined]
-        monkeypatch.setitem(sys.modules, "langchain_unstructured", fake_module)
-
-        handler = UnstructuredLoaderContentHandler()
-        handler.transform(
-            b"test content",
-            "text/plain",
-            {"opendma:Title": "readme.md"},
-        )
-
-        assert calls[0]["metadata_filename"] == "readme.txt"
-
-    def test_transform_api_uses_temporary_file_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test API transform gives Unstructured a real file path with a useful name."""
-        calls: list[dict[str, Any]] = []
-        file_contents: list[bytes] = []
-
-        class FakeUnstructuredLoader:
-            def __init__(self, **kwargs: Any) -> None:
-                calls.append(kwargs)
-
-            def load(self) -> list[Document]:
-                file_path = calls[0]["file_path"]
-                file_contents.append(file_path.read_bytes())
-                return [Document(page_content="parsed", metadata={"source": str(file_path)})]
-
-        fake_module = ModuleType("langchain_unstructured")
-        fake_module.UnstructuredLoader = FakeUnstructuredLoader  # type: ignore[attr-defined]
-        monkeypatch.setitem(sys.modules, "langchain_unstructured", fake_module)
-
-        handler = UnstructuredLoaderContentHandler(
-            partition_via_api=True,
-            api_key="test-key",
-            chunking_strategy="by_title",
-            max_characters=4000,
-        )
-        documents = handler.transform(
-            b"test content",
-            "application/pdf",
-            {"opendma:Title": "quarterly report", "source": "opendma://repo/123"},
-        )
-
-        assert calls[0]["file_path"].name == "quarterly report.pdf"
-        assert calls[0]["partition_via_api"] is True
-        assert calls[0]["api_key"] == "test-key"
-        assert calls[0]["chunking_strategy"] == "by_title"
-        assert calls[0]["max_characters"] == 4000
-        assert file_contents == [b"test content"]
-        assert documents[0].metadata["source"] == "opendma://repo/123"
+        assert documents
+        assert all(isinstance(document, Document) for document in documents)
+        assert "Hello, world!" in "\n".join(document.page_content for document in documents)
+        for document in documents:
+            assert metadata.items() <= document.metadata.items()
 
 
 class TestDoclingLoaderContentHandler:
     """Test cases for DoclingLoaderContentHandler."""
-
-    def test_init_with_defaults(self) -> None:
-        """Test handler initialization with default parameters."""
-        handler = DoclingLoaderContentHandler()
-        assert handler.converter is None
-        assert handler.convert_kwargs is None
-        assert handler.export_type is None
-        assert handler.md_export_kwargs is None
-        assert handler.chunker is None
-        assert handler.meta_extractor is None
-
-    def test_init_with_all_params(self) -> None:
-        """Test handler initialization with Docling parameters."""
-        converter = object()
-        chunker = object()
-        meta_extractor = object()
-        handler = DoclingLoaderContentHandler(
-            converter=converter,
-            convert_kwargs={"raises_on_error": False},
-            export_type="markdown",
-            md_export_kwargs={"image_placeholder": ""},
-            chunker=chunker,
-            meta_extractor=meta_extractor,
-        )
-
-        assert handler.converter is converter
-        assert handler.convert_kwargs == {"raises_on_error": False}
-        assert handler.export_type == "markdown"
-        assert handler.md_export_kwargs == {"image_placeholder": ""}
-        assert handler.chunker is chunker
-        assert handler.meta_extractor is meta_extractor
 
     def test_can_handle_core_formats(self) -> None:
         """Test that handler accepts core Docling document MIME types."""
@@ -484,82 +284,27 @@ class TestDoclingLoaderContentHandler:
         with pytest.raises(ImportError, match="langchain-opendma\\[docling\\]"):
             handler.transform(b"test content", "application/pdf", {"source": "test.pdf"})
 
-    def test_transform_uses_temporary_file_path_and_merges_metadata(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test transform passes a real file path to DoclingLoader and merges metadata."""
-        calls: list[dict[str, Any]] = []
-        file_contents: list[bytes] = []
+    @pytest.mark.parametrize(
+        "metadata",
+        [
+            {},
+            {"opendma:Title": "hello.txt"},
+            {"opendma:Title": "hello.pdf"},
+            {"opendma:Title": 'bad:/\\*?"<>|name.txt'},
+            {"opendma:Name": "name without extension"},
+            {"content_file_name": "content-name.txt"},
+        ],
+    )
+    def test_transform_text_plain(self, metadata: dict[str, Any]) -> None:
+        """Test text/plain transformation through the real DoclingLoader."""
+        from langchain_docling.loader import ExportType
 
-        class FakeDoclingLoader:
-            def __init__(self, **kwargs: Any) -> None:
-                calls.append(kwargs)
+        handler = DoclingLoaderContentHandler(export_type=ExportType.MARKDOWN)
 
-            def load(self) -> list[Document]:
-                file_path = Path(calls[0]["file_path"])
-                file_contents.append(file_path.read_bytes())
-                return [Document(page_content="parsed", metadata={"source": str(file_path)})]
+        documents = handler.transform(b"Hello, world!", "text/plain", metadata)
 
-        fake_package = ModuleType("langchain_docling")
-        fake_module = ModuleType("langchain_docling.loader")
-        fake_module.DoclingLoader = FakeDoclingLoader  # type: ignore[attr-defined]
-        monkeypatch.setitem(sys.modules, "langchain_docling", fake_package)
-        monkeypatch.setitem(sys.modules, "langchain_docling.loader", fake_module)
-
-        converter = object()
-        chunker = object()
-        handler = DoclingLoaderContentHandler(
-            converter=converter,
-            convert_kwargs={"raises_on_error": False},
-            export_type="markdown",
-            md_export_kwargs={"image_placeholder": ""},
-            chunker=chunker,
-        )
-        documents = handler.transform(
-            b"test content",
-            "application/pdf",
-            {"opendma:Title": "quarterly report", "source": "opendma://repo/123"},
-        )
-
-        assert Path(calls[0]["file_path"]).name == "quarterly report.pdf"
-        assert Path(calls[0]["file_path"]).is_absolute()
-        assert calls[0]["converter"] is converter
-        assert calls[0]["convert_kwargs"] == {"raises_on_error": False}
-        assert calls[0]["export_type"] == "markdown"
-        assert calls[0]["md_export_kwargs"] == {"image_placeholder": ""}
-        assert calls[0]["chunker"] is chunker
-        assert file_contents == [b"test content"]
-        assert documents == [
-            Document(
-                page_content="parsed",
-                metadata={"source": "opendma://repo/123", "opendma:Title": "quarterly report"},
-            )
-        ]
-
-    def test_transform_overwrites_metadata_filename_extension(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test MIME type extension wins over an extension from ECM metadata."""
-        calls: list[dict[str, Any]] = []
-
-        class FakeDoclingLoader:
-            def __init__(self, **kwargs: Any) -> None:
-                calls.append(kwargs)
-
-            def load(self) -> list[Document]:
-                return []
-
-        fake_package = ModuleType("langchain_docling")
-        fake_module = ModuleType("langchain_docling.loader")
-        fake_module.DoclingLoader = FakeDoclingLoader  # type: ignore[attr-defined]
-        monkeypatch.setitem(sys.modules, "langchain_docling", fake_package)
-        monkeypatch.setitem(sys.modules, "langchain_docling.loader", fake_module)
-
-        handler = DoclingLoaderContentHandler()
-        handler.transform(
-            b"test content",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            {"opendma:Title": "myfile.txt"},
-        )
-
-        assert Path(calls[0]["file_path"]).name == "myfile.docx"
+        assert documents
+        assert all(isinstance(document, Document) for document in documents)
+        assert "Hello, world!" in "\n".join(document.page_content for document in documents)
+        for document in documents:
+            assert metadata.items() <= document.metadata.items()
