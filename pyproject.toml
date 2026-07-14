@@ -97,6 +97,9 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "--cov=langchain_opendma --cov-report=term-missing --cov-report=html"
+markers = [
+    "integration: tests requiring an external OpenDMA tutorial repository",
+]
 
 [tool.coverage.run]
 source = ["src/langchain_opendma"]
