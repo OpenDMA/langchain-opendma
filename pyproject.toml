@@ -36,6 +36,8 @@ dev = [
 unstructured = [
     "langchain-unstructured>=0.2.0",
     "unstructured-client>=0.28.0",
+    "unstructured-inference>=1.2.0,<1.3.0; python_version < '3.11'",
+    "unstructured-inference>=1.6.10; python_version >= '3.11' and python_version < '3.14'",
     "unstructured[pdf,doc,docx,ppt,pptx,xlsx,rtf,odt,epub,image,csv,tsv,md,org,rst]>=0.16.0",
 ]
 docling = [
