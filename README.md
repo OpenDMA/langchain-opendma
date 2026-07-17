@@ -63,6 +63,7 @@ handler. See the [documentation](docs/README.md) for details.
 
 ## Documentation
 
+- [Tutorials](docs/tutorials/README.md): guided LangChain application tutorials
 - [Documentation](docs/README.md): usage, loader options, and content handlers
 - [Examples](docs/examples/README.md): runnable examples using the tutorial repository
 

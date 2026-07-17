@@ -4,6 +4,11 @@ This page explains how to use `langchain-opendma` in LangChain applications.
 For installation and a short project overview, see the project
 [README](../README.md).
 
+## Tutorials
+
+Guided LangChain application tutorials are documented in
+[tutorials/README.md](tutorials/README.md).
+
 ## Core Concepts
 
 `langchain-opendma` connects three layers:
