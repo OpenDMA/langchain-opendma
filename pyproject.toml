@@ -2,6 +2,8 @@
 name = "langchain-opendma"
 version = "0.1.0"
 description = "LangChain document loaders for OpenDMA - integrate ECM systems with LangChain"
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 authors = [
     { name = "Stefan Kopf", email = "s.kopf@xaldon.de" }
