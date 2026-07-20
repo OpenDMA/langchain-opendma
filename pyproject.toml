@@ -14,16 +14,15 @@ dependencies = [
     "opendma-api>=0.8.0",
     "opendma-remote>=0.8.0",
 ]
-keywords = ["langchain", "opendma", "ecm", "document-loaders", "alfresco", "sharepoint"]
+keywords = ["langchain", "opendma", "ecm", "document-loaders"]
 classifiers = [
-    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
