@@ -544,6 +544,8 @@ class AlfrescoLoader(OpenDMALoader):
     top of OpenDMALoader.
     """
 
+    _INVALID_SITE_NAME_CHARACTERS = frozenset('"*\\><?/:|')
+
     def __init__(
         self,
         endpoint: str,
@@ -584,6 +586,10 @@ class AlfrescoLoader(OpenDMALoader):
                 documents instead of continuing.
             warn_on_error: Emit warnings for skipped documents when raise_on_error is False.
         """
+        if sites is not None:
+            for site in sites:
+                self._validate_site_name(site)
+
         super().__init__(
             endpoint=endpoint,
             username=username,
@@ -601,6 +607,18 @@ class AlfrescoLoader(OpenDMALoader):
             warn_on_error=warn_on_error,
         )
         self.sites = sites
+
+    @classmethod
+    def _validate_site_name(cls, site: str) -> None:
+        if any(character in site for character in cls._INVALID_SITE_NAME_CHARACTERS):
+            raise ValueError(
+                "Alfresco site names cannot contain any of these characters: "
+                r'" * \ > < ? / : |'
+            )
+        if site.endswith("."):
+            raise ValueError("Alfresco site names cannot end with a period")
+        if site.endswith(" "):
+            raise ValueError("Alfresco site names cannot end with a space")
 
     def _lazy_load_extra_objects(self, session: Any) -> Iterator[Any]:
         """Load documents recursively from configured Alfresco sites."""
