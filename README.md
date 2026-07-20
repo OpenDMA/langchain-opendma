@@ -59,13 +59,13 @@ for document in documents:
 
 By default, `OpenDMALoader` handles `text/plain` content. For PDF, Office,
 HTML, image, and other rich formats, configure an Unstructured or Docling content
-handler. See the [documentation](docs/README.md) for details.
+handler. See the [documentation](https://github.com/OpenDMA/langchain-opendma/tree/main/docs/README.md) for details.
 
 ## Documentation
 
-- [Tutorials](docs/tutorials/README.md): guided LangChain application tutorials
-- [Documentation](docs/README.md): usage, loader options, and content handlers
-- [Examples](docs/examples/README.md): runnable examples using the tutorial repository
+- [Tutorials](https://github.com/OpenDMA/langchain-opendma/tree/main/docs/tutorials/README.md): guided LangChain application tutorials
+- [Documentation](https://github.com/OpenDMA/langchain-opendma/tree/main/docs/README.md): usage, loader options, and content handlers
+- [Examples](https://github.com/OpenDMA/langchain-opendma/tree/main/docs/examples/README.md): runnable examples using the tutorial repository
 
 ## Development
 
