@@ -264,7 +264,7 @@ class OpenDMALoader(BaseLoader):
                 metadata["content_state"] = "Missing"
                 yield Document(page_content="", metadata=metadata)
             return
-        
+
         content_file_name = content_element.get_file_name()
         if content_file_name:
             metadata["content_file_name"] = content_file_name
