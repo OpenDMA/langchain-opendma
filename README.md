@@ -24,7 +24,7 @@ content analysis workflows on top of documents stored in ECM systems.
 Install OpenDMA and this integration from PyPI:
 
 ```bash
-pip install opendma opendma-remote langchain-opendma
+pip install langchain-opendma
 ```
 
 Install optional parser integrations when you need Office, PDF, HTML, images, or
