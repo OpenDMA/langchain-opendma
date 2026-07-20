@@ -27,6 +27,12 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
+[project.urls]
+Homepage = "https://opendma.org"
+Repository = "https://github.com/OpenDMA/langchain-opendma.git"
+Documentation = "https://github.com/OpenDMA/langchain-opendma/tree/main/docs"
+Issues = "https://github.com/OpenDMA/langchain-opendma/issues"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
