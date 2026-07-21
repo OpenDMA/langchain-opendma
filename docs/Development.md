@@ -88,7 +88,7 @@ dev version after publishing.
 # remove .dev before building a release
 uv version --bump stable
 # bump to next minor/major and add .dev
-uv version --bump minor dev
+uv version --bump minor --bump dev
 ```
 
 Use `uv publish --token` or the standard PyPI token environment variables
