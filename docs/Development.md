@@ -34,12 +34,14 @@ Run integration tests against the tutorial repository:
 
 ```bash
 docker run -p 8080:8080 ghcr.io/opendma/tutorial-xmlrepo:0.8.1
-OPENDMA_TUTORIAL_ENDPOINT=http://localhost:8080/opendma uv run pytest tests/integration
+OPENDMA_TUTORIAL_ENDPOINT=http://localhost:8080/opendma
+uv run pytest tests/integration
 ```
 
 On PowerShell:
 
 ```powershell
+docker run -p 8080:8080 ghcr.io/opendma/tutorial-xmlrepo:0.8.1
 $env:OPENDMA_TUTORIAL_ENDPOINT = "http://localhost:8080/opendma"
 uv run pytest tests\integration
 ```
@@ -74,11 +76,20 @@ uv run pytest
 uv run ruff check src tests
 uv run mypy src tests
 uv build
-git tag v0.1.0
-git push origin v0.1.0
+git tag 0.1.0
+git push origin 0.1.0
 uv publish
 ```
 
-Adjust the version in `pyproject.toml` before building. Use `uv publish --token`
-or the standard PyPI token environment variables according to the release
-environment.
+Adjust the version in `pyproject.toml` before building and bump to the next
+dev version after publishing.
+
+```bash
+# remove .dev before building a release
+uv version --bump stable
+# bump to next minor/major and add .dev
+uv version --bump minor dev
+```
+
+Use `uv publish --token` or the standard PyPI token environment variables
+according to the release environment.

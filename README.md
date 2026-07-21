@@ -80,9 +80,9 @@ uv run mypy src tests
 
 ## Related Projects
 
+- [LangChain](https://python.langchain.com/)
 - [OpenDMA](https://opendma.org/)
 - [opendma-api](https://pypi.org/project/opendma-api/)
 - [opendma-remote](https://pypi.org/project/opendma-remote/)
-- [LangChain](https://python.langchain.com/)
 - [Unstructured](https://unstructured.io/)
 - [Docling](https://docling-project.github.io/docling/)

@@ -4,8 +4,6 @@ In this tutorial, we start with the same indexing pipeline and 2-step RAG we
 have built in the previous [Basic RAG tutorial](./01_basic_rag.md). But this
 time, we connect it to a real ECM system.
 
-If you used a Jupyter Notebook, you can simply modify the cells and re-run them.
-
 We choose Alfresco, as it is available at no cost in a community edition and
 comes with a convenient Docker Compose deployment.
 
@@ -241,7 +239,8 @@ It will print out this result:
 Question:
 Who attended the meeting in January 2011?
 Answer:
-The attendees of the meeting on 27th January 2011 were Mike Jackson, Benjamin Scobell, Betty Silver, Jimmy Pitt, and Angela Travers.
+The attendees of the meeting on 27th January 2011 were Mike Jackson, Benjamin Scobell, Betty Silver,
+Jimmy Pitt, and Angela Travers.
 ```
 
 We can also inspect the `context` and look at the individual text snippets that
@@ -376,6 +375,9 @@ Loaded 368 additional documents from Engineering Site.
 
 Indexed 368 additional documents.
 ```
+
+The Unstructured library has split the single text file in Alfresco into 368 text
+chunks, each represented as a LangChain `Documnet`.
 
 Now we ask the same question again, using a larger knowledge base:
 
@@ -596,7 +598,6 @@ class AnalyzedQuery(TypedDict):
     query: str
     site: str
 
-
 class ExtendedState(TypedDict):
     question: str
     query: AnalyzedQuery
@@ -665,6 +666,19 @@ for step in extended_graph.stream(
     print(f"{str(step)[:250]}\n\n----------------\n")
 ```
 
+```text
+{'analyze_query': {'query': {'query': 'state of localisation of new website design', 'site': 'swsdp'}}}
+
+----------------
+
+{'retrieve': {'context': [Document(id='c55d1417-cf11-498a-b8d3-7da07e0b35b3', metadata={...
+
+----------------
+
+{'generate': {'answer': 'The state of localisation of the new website design is that...
+
+```
+
 The `analyze_query` step should select the `swsdp` site for this question and
 produce a search query focused on the actual information need.
 
@@ -677,6 +691,15 @@ print(f"Question:\n{question_localisation}\n")
 print(f"Answer:\n{result_localisation_3['answer']}")
 ```
 
+```text
+Question:
+What is the state of localisation of our new website design?
+
+Answer:
+The state of localisation of the new website design is that it has been decided to include
+localization in phase 1 of the project.
+```
+
 We can again inspect the retrieved context:
 
 ```python
@@ -685,6 +708,49 @@ for document in result_localisation_3["context"]:
     print("Site:", document.metadata.get("alfresco:Site"))
     print(normalize_whitespace(document.page_content[:75]))
     print("-" * 80)
+```
+
+```text
+Title: budget.xls
+Site: swsdp
+New Web Site Design Costs
+--------------------------------------------------------------------------------
+Title: budget.xls
+Site: swsdp
+Web Site Structure Build
+--------------------------------------------------------------------------------
+Title: link-1297806244007_178
+Site: swsdp
+http://www.w3.org/standards/webdesign/
+--------------------------------------------------------------------------------
+Title: Project Objectives.ppt
+Site: swsdp
+Web Site Redesign Project Objectives _x0010_Agenda Technology Increase S
+--------------------------------------------------------------------------------
+Title: Project Contract.pdf
+Site: swsdp
+Contract for Redesign of Corporate Web Site Prepared By: Alice Beecher Mor
+--------------------------------------------------------------------------------
+Title: Milestones
+Site: swsdp
+Phase Description Target Date Actual Date 1 Project Initiation 10th January
+--------------------------------------------------------------------------------
+Title: Project Overview.ppt
+Site: swsdp
+Web Site Redesign Project Overview _x0010_Agenda Objectives Market Analy
+--------------------------------------------------------------------------------
+Title: Project Contract.pdf
+Site: swsdp
+Company Confidential Contract Objectives Overview Corporate Web Lorem ip
+--------------------------------------------------------------------------------
+Title: Meeting Notes 2011-02-10.doc
+Site: swsdp
+Key Decisions Decided to included TCO calculator in phase 1 Decided to in
+--------------------------------------------------------------------------------
+Title: Meeting Notes 2011-02-10.doc
+Site: swsdp
+Action Action Owner Date Define TCO calculator spec Izzy Previn 15th Februa
+--------------------------------------------------------------------------------
 ```
 
 The vector store still contains the Engineering documents that caused retrieval

@@ -303,6 +303,16 @@ print(f"Question:\n{question}\n")
 print(f"Answer:\n{result['answer']}")
 ```
 
+```text
+Question:
+How are objects identified in OpenDMA?
+
+Answer:
+In OpenDMA, objects are identified by a unique string representation of the object identifier, which is defined
+by the property `opendma:Id`. Additionally, every object must have a property `opendma:Class` that contains a
+reference to a valid class object describing the object.
+```
+
 We can also inspect the `context` and look at the individual text snippets that
 have been used to generate this answer:
 
@@ -315,11 +325,18 @@ for document in result["context"]:
 ```
 
 ```text
-Question:
-How are objects identified in OpenDMA?
-
-Answer:
-In OpenDMA, objects are identified by a unique string representation of the object identifier, which is defined by the property `opendma:Id`. Additionally, every object must have a property `opendma:Class` that contains a reference to a valid class object describing the object.
+Title: OpenDMA Specification 0.8
+Source: opendma://sample-repo/opendma-spec-document
+Section I.2: OpenDMA object model OpenDMA enforces some constraints on the simple object model for type safety and reﬂection. §6 Basic object constraints The following constraints apply to all objects in the OpenDMA object model. §6.1 Reﬂection Every object must have at least the following two
+--------------------------------------------------------------------------------
+Title: OpenDMA Specification 0.8
+Source: opendma://sample-repo/opendma-spec-document
+data type id read from the opendma:DataType property of the corresponding property info for pn. §13 Core class reference Section I.2 deﬁnes a set of properties that are required for the objects of the class hierarchy, but it does not limit the actual properties to this set. An implementer might
+--------------------------------------------------------------------------------
+Title: OpenDMA Specification 0.8
+Source: opendma://sample-repo/opendma-spec-document
+§2.5 Data type id A numeric data type id is assigned to each data type corresponding to this table: Data type Data type id String (§2.1) 1 Integer (§2.1) 2 Short integer (§2.1) 3 Long integer (§2.1) 4 Float (§2.1) 5 Double (§2.1) 6 Boolean (§2.1) 7 DateTime (§2.1) 8 Binary (§2.1)
+--------------------------------------------------------------------------------
 ```
 
 This is the basic RAG flow: documents are retrieved from the vector store, and

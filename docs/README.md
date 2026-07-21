@@ -244,6 +244,11 @@ Install the optional dependencies:
 pip install "langchain-opendma[unstructured]"
 ```
 
+> [!WARNING]
+> At the time of writing, the latest version of `unstructured-inference` does
+> not support Python 3.14 or later. Please manage Python and Unstructured
+> dependency versions when using the Unstructured content handler.
+
 Configure the handler:
 
 ```python
