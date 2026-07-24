@@ -1,12 +1,12 @@
 # LangChain OpenDMA
 
-LangChain document loaders for [OpenDMA](https://opendma.org/).
+LangChain document loaders and retrievers for [OpenDMA](https://opendma.org/).
 
 OpenDMA is a vendor-neutral abstraction layer for enterprise content management
 systems. It provides a common API for repositories such as Alfresco, CMOD,
 Documentum, FileNet P8, OnBase, SharePoint, and other ECM or document management
-platforms. This package connects that API to LangChain by loading OpenDMA
-documents as `langchain_core.documents.Document` objects.
+platforms. This package connects that API to LangChain by loading and retrieving
+OpenDMA documents as `langchain_core.documents.Document` objects.
 
 Use this package when you want to build LangChain applications, RAG pipelines, or
 content analysis workflows on top of documents stored in ECM systems.
@@ -14,6 +14,7 @@ content analysis workflows on top of documents stored in ECM systems.
 ## Features
 
 - Load documents from an OpenDMA REST service by document ID, folder ID, or query.
+- Retrieve documents from OpenDMA search results through LangChain's retriever API.
 - Preserve OpenDMA and repository metadata on every LangChain `Document`.
 - Process plain text content out of the box.
 - Process richer document formats with optional Unstructured or Docling handlers.
@@ -60,6 +61,23 @@ for document in documents:
 By default, `OpenDMALoader` handles `text/plain` content. For PDF, Office,
 HTML, image, and other rich formats, configure an Unstructured or Docling content
 handler. See the [documentation](https://github.com/OpenDMA/langchain-opendma/tree/main/docs/README.md) for details.
+
+Use `OpenDMARetriever` when you want LangChain to call an OpenDMA search as part
+of a retrieval pipeline:
+
+```python
+from langchain_opendma import OpenDMARetriever
+
+retriever = OpenDMARetriever(
+    endpoint="http://localhost:8080/opendma",
+    username="admin",
+    password="admin",
+    repository_id="my-repository",
+    query_language="opendma:sfts",
+)
+
+documents = retriever.invoke("needle keyword")
+```
 
 ## Documentation
 

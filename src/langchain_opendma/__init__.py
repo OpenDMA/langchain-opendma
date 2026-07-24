@@ -13,12 +13,15 @@ from langchain_opendma.content_handlers import (
     UnstructuredLoaderContentHandler,
 )
 from langchain_opendma.loaders import AlfrescoLoader, OpenDMALoader
+from langchain_opendma.retrievers import AlfrescoRetriever, OpenDMARetriever
 
 __version__ = "0.2.0.dev1"
 
 __all__ = [
     "OpenDMALoader",
     "AlfrescoLoader",
+    "OpenDMARetriever",
+    "AlfrescoRetriever",
     "ContentHandler",
     "PlainTextHandler",
     "UnstructuredLoaderContentHandler",
