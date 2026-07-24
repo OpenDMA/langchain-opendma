@@ -14,7 +14,7 @@ from langchain_opendma.content_handlers import (
 )
 from langchain_opendma.loaders import AlfrescoLoader, OpenDMALoader
 
-__version__ = "0.1.0"
+__version__ = "0.2.0.dev1"
 
 __all__ = [
     "OpenDMALoader",
