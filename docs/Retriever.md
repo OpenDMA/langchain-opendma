@@ -59,6 +59,21 @@ retriever = OpenDMARetriever(
 When a content handler chunks an input document, the retriever returns the
 resulting chunks as individual LangChain `Document` objects.
 
+Use `k` to limit how many LangChain `Document` objects are returned:
+
+```python
+retriever = OpenDMARetriever(
+    ...,
+    query_language="opendma:sfts",
+    k=5,
+)
+```
+
+The limit applies after content transformation. If a content handler splits a
+repository document into several chunks, each chunk counts as one returned
+LangChain `Document`. Once the limit is reached, the retriever stops consuming
+additional OpenDMA search results.
+
 ## Options
 
 Required constructor arguments:
@@ -75,6 +90,7 @@ Optional arguments:
 - `include_no_content`: include documents without content as empty documents
 - `include_unhandled_content`: include documents with unsupported MIME types as
   empty documents
+- `k`: maximum number of LangChain `Document` objects to return
 - `raise_on_error`: raise exceptions while retrieving or transforming individual
   documents instead of continuing
 - `warn_on_error`: emit warnings for skipped documents when `raise_on_error` is

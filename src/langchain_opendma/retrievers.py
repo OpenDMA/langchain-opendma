@@ -36,6 +36,9 @@ class OpenDMARetriever(BaseRetriever):
         include_no_content: Include documents without content as empty documents.
         include_unhandled_content: Include documents with unsupported MIME types as
             empty documents.
+        k: Maximum number of LangChain documents to return. When content handlers
+            split repository documents into chunks, the limit applies to the
+            returned chunks.
         raise_on_error: Raise exceptions while retrieving or transforming individual
             documents instead of continuing.
         warn_on_error: Emit warnings for skipped documents when raise_on_error is False.
@@ -64,8 +67,15 @@ class OpenDMARetriever(BaseRetriever):
     content_handlers: list[Any] | None = None
     include_no_content: bool = False
     include_unhandled_content: bool = False
+    k: int | None = None
     raise_on_error: bool = False
     warn_on_error: bool = True
+
+    def model_post_init(self, __context: Any) -> None:
+        """Validate retriever options after Pydantic initialization."""
+        super().model_post_init(__context)
+        if self.k is not None and self.k <= 0:
+            raise ValueError("k must be greater than 0")
 
     def _build_query(self, query: str) -> str:
         """Build the OpenDMA query from the retriever input."""
@@ -94,7 +104,12 @@ class OpenDMARetriever(BaseRetriever):
     ) -> list[Document]:
         """Retrieve documents matching the query."""
         loader = self._create_loader(self._build_query(query))
-        return loader.load()
+        documents: list[Document] = []
+        for document in loader.lazy_load():
+            documents.append(document)
+            if self.k is not None and len(documents) >= self.k:
+                break
+        return documents
 
     async def _aget_relevant_documents(
         self,
@@ -104,7 +119,12 @@ class OpenDMARetriever(BaseRetriever):
     ) -> list[Document]:
         """Retrieve documents matching the query asynchronously."""
         loader = self._create_loader(self._build_query(query))
-        return await loader.aload()
+        documents: list[Document] = []
+        async for document in loader.alazy_load():
+            documents.append(document)
+            if self.k is not None and len(documents) >= self.k:
+                break
+        return documents
 
 
 class AlfrescoRetriever(OpenDMARetriever):
@@ -126,6 +146,9 @@ class AlfrescoRetriever(OpenDMARetriever):
         include_no_content: Include documents without content as empty documents.
         include_unhandled_content: Include documents with unsupported MIME types as
             empty documents.
+        k: Maximum number of LangChain documents to return. When content handlers
+            split repository documents into chunks, the limit applies to the
+            returned chunks.
         raise_on_error: Raise exceptions while retrieving or transforming individual
             documents instead of continuing.
         warn_on_error: Emit warnings for skipped documents when raise_on_error is False.
@@ -151,6 +174,7 @@ class AlfrescoRetriever(OpenDMARetriever):
 
     def model_post_init(self, __context: Any) -> None:
         """Validate Alfresco-specific options after Pydantic initialization."""
+        super().model_post_init(__context)
         if self.sites is not None:
             for site in self.sites:
                 AlfrescoLoader._validate_site_name(site)
@@ -188,6 +212,9 @@ class FileNetP8Retriever(OpenDMARetriever):
         include_no_content: Include documents without content as empty documents.
         include_unhandled_content: Include documents with unsupported MIME types as
             empty documents.
+        k: Maximum number of LangChain documents to return. When content handlers
+            split repository documents into chunks, the limit applies to the
+            returned chunks.
         raise_on_error: Raise exceptions while retrieving or transforming individual
             documents instead of continuing.
         warn_on_error: Emit warnings for skipped documents when raise_on_error is False.
@@ -250,6 +277,9 @@ class DocumentumRetriever(OpenDMARetriever):
         include_no_content: Include documents without content as empty documents.
         include_unhandled_content: Include documents with unsupported MIME types as
             empty documents.
+        k: Maximum number of LangChain documents to return. When content handlers
+            split repository documents into chunks, the limit applies to the
+            returned chunks.
         raise_on_error: Raise exceptions while retrieving or transforming individual
             documents instead of continuing.
         warn_on_error: Emit warnings for skipped documents when raise_on_error is False.
@@ -303,6 +333,9 @@ class OnBaseRetriever(OpenDMARetriever):
         include_no_content: Include documents without content as empty documents.
         include_unhandled_content: Include documents with unsupported MIME types as
             empty documents.
+        k: Maximum number of LangChain documents to return. When content handlers
+            split repository documents into chunks, the limit applies to the
+            returned chunks.
         raise_on_error: Raise exceptions while retrieving or transforming individual
             documents instead of continuing.
         warn_on_error: Emit warnings for skipped documents when raise_on_error is False.
