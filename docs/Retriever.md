@@ -87,7 +87,7 @@ Optional arguments:
 
 `AlfrescoRetriever` is a convenience retriever for Alfresco repositories exposed
 through OpenDMA. It turns the input string into an Alfresco AFTS full-text query
-and escapes phrase delimiters before submitting the query.
+while respecting escaping rules for special characters.
 
 ```python
 from langchain_opendma import AlfrescoRetriever
@@ -111,6 +111,79 @@ defaults and additions:
 - `repository_id="Alfresco"`
 - `query_language="alfresco:afts"`
 - `sites`: optional Alfresco site short names used to restrict retrieval
+
+## FileNetP8Retriever
+
+`FileNetP8Retriever` is a convenience retriever for FileNet P8 repositories
+exposed through OpenDMA. It turns the input string into a valid FileNet P8
+Content Based Retrieval (CBR) query while respecting escaping rules for
+special characters.
+
+```python
+from langchain_opendma import FileNetP8Retriever
+
+retriever = FileNetP8Retriever(
+    endpoint="http://localhost:8080/opendma/filenet",
+    username="admin",
+    password="admin",
+    repository_id="FileNetP8",
+)
+
+documents = retriever.invoke("contract invoice")
+```
+
+`FileNetP8Retriever` supports the same options as `OpenDMARetriever`, with this
+default:
+
+- `query_language="filenetp8:sql"`
+
+## DocumentumRetriever
+
+`DocumentumRetriever` is a convenience retriever for Documentum repositories
+exposed through OpenDMA. It turns the input string into a valid Documentum
+Full-Text Search query while respecting escaping rules for special characters.
+
+```python
+from langchain_opendma import DocumentumRetriever
+
+retriever = DocumentumRetriever(
+    endpoint="http://localhost:8080/opendma/documentum",
+    username="admin",
+    password="admin",
+    repository_id="Documentum",
+)
+
+documents = retriever.invoke("contract invoice")
+```
+
+`DocumentumRetriever` supports the same options as `OpenDMARetriever`, with this
+default:
+
+- `query_language="dctm:dql"`
+
+## OnBaseRetriever
+
+`OnBaseRetriever` is a convenience retriever for OnBase repositories exposed
+through OpenDMA. It turns the input string into a valid OnBase Full-Text
+Search query while respecting escaping rules for special characters.
+
+```python
+from langchain_opendma import OnBaseRetriever
+
+retriever = OnBaseRetriever(
+    endpoint="http://localhost:8080/opendma/onbase",
+    username="admin",
+    password="admin",
+    repository_id="OnBase",
+)
+
+documents = retriever.invoke("contract invoice")
+```
+
+`OnBaseRetriever` supports the same options as `OpenDMARetriever`, with this
+default:
+
+- `query_language="onbase:DocumentQuery"`
 
 ## Examples
 

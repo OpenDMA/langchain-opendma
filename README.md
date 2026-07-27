@@ -15,6 +15,7 @@ content analysis workflows on top of documents stored in ECM systems.
 
 - Load documents from an OpenDMA REST service by document ID, folder ID, or query.
 - Retrieve documents from OpenDMA search results through LangChain's retriever API.
+- Use specialized retrievers for Alfresco, Documentum, FileNet P8, and OnBase.
 - Preserve OpenDMA and repository metadata on every LangChain `Document`.
 - Process plain text content out of the box.
 - Process richer document formats with optional Unstructured or Docling handlers.
