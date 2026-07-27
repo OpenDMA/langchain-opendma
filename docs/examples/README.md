@@ -27,6 +27,10 @@ http://localhost:8080/opendma
 These examples demonstrate the basic usage of the Document Loader with sample
 content from this tutorial repository.
 
+Features of the Tutorial XML Repository are limited, but it allows us to
+explore the basic functionality of this LangChain integration without complex
+setups.
+
 ### `01_basic_usage.py`
 
 Loads one document by document ID from the tutorial repository and prints its
@@ -89,13 +93,13 @@ uv sync --extra docling
 
 ## Alfresco Examples
 
-The Alfresco examples use an OpenDMA REST endpoint backed by Alfresco Community
-Edition and the "Sample: Web Site Design Project" site.
+Alfresco Community Edition is available free of charge. We use it to explore
+features of this LangChain integration that require a full ECM repository.
+
+Each new setup contains the "Sample: Web Site Design Project" site, which will
+be used by these examples.
 
 ### Running Alfresco Community Edition
-
-Alfresco Community Edition is available free of charge. Each new setup contains
-the "Sample: Web Site Design Project" site used by the example.
 
 If you do not already have an Alfresco system running, start one with Docker
 Compose:
@@ -112,11 +116,7 @@ Verify that Alfresco is running by opening:
 http://localhost:8080/share
 ```
 
-The default credentials are:
-
-```text
-admin/admin
-```
+The default credentials are: user `admin` and password `admin`
 
 ### Running an OpenDMA Endpoint for Alfresco
 
@@ -158,9 +158,9 @@ http://localhost:7070/opendma/alf
 To verify this REST endpoint, you can open `http://localhost:7070/opendma/alf/` (with a trailing slash)
 in a web browser and authenticate with your Alfresco credentials (`admin/admin` by default).
 
-### `11_alfresco.py`
+### `11_alfresco_loader.py`
 
-Loads all files from the Alfresco Sample: Web Site Design Project site
+Loads all files from the Alfresco "Sample: Web Site Design Project" site
 (`swsdp`) with `AlfrescoLoader` and chunks content with
 `UnstructuredLoaderContentHandler`.
 
@@ -173,13 +173,31 @@ uv sync --extra unstructured
 Then run:
 
 ```bash
-uv run python docs/examples/11_alfresco.py
+uv run python docs/examples/11_alfresco_loader.py
 ```
 
 Looking at the `alfresco:Path` you can see that it includes information from the Wiki
 and Links as well, not just files from the Document Library.  
 Depending on the size, each extracted file is split into multiple Langchain Documents
 using the Unstructured library.
+
+### `12_alfresco_retriever.py`
+
+Performs a full-text search in the Alfresco "Sample: Web Site Design Project" site
+(`swsdp`) with `AlfrescoRetriever` and chunks content with
+`UnstructuredLoaderContentHandler`.
+
+Install the optional dependencies first:
+
+```bash
+uv sync --extra unstructured
+```
+
+Then run:
+
+```bash
+uv run python docs/examples/12_alfresco_retriever.py
+```
 
 ## Notes
 
