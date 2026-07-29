@@ -1,6 +1,6 @@
 [project]
 name = "langchain-opendma"
-version = "0.2.0"
+version = "0.3.0.dev1"
 description = "LangChain loaders and retrievers for OpenDMA - integrate ECM systems with LangChain"
 license = "MIT"
 license-files = ["LICENSE"]
