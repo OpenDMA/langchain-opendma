@@ -91,5 +91,8 @@ uv version --bump stable
 uv version --bump minor --bump dev
 ```
 
+Make sure to manually update `__version__` in `src/__init__.py` as it is not
+touched by `uv  version --bump`.
+
 Use `uv publish --token` or the standard PyPI token environment variables
 according to the release environment.
