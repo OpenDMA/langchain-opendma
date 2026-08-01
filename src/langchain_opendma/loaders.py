@@ -236,20 +236,6 @@ class OpenDMALoader(BaseLoader):
                 yield Document(page_content="", metadata=metadata)
             return
 
-        # Find a handler that can process this MIME type
-        handler = None
-        for h in self.content_handlers:
-            if h.can_handle(mime_type):
-                handler = h
-                break
-
-        if handler is None:
-            # No handler for this MIME type
-            if self.include_unhandled_content:
-                metadata["content_state"] = "Unsupported"
-                yield Document(page_content="", metadata=metadata)
-            return
-
         # Get content data
         content = content_element.get_content()
         if content is None:
@@ -262,6 +248,20 @@ class OpenDMALoader(BaseLoader):
         if stream is None:
             if self.include_no_content:
                 metadata["content_state"] = "Missing"
+                yield Document(page_content="", metadata=metadata)
+            return
+
+        # Find a handler that can process this MIME type
+        handler = None
+        for h in self.content_handlers:
+            if h.can_handle(mime_type):
+                handler = h
+                break
+
+        if handler is None:
+            # No handler for this MIME type
+            if self.include_unhandled_content:
+                metadata["content_state"] = "Unsupported"
                 yield Document(page_content="", metadata=metadata)
             return
 
