@@ -12,6 +12,12 @@ Create or update the local development environment:
 uv sync --dev
 ```
 
+The development dependency group also contains LangChain application packages
+such as `langchain`, `langchain-openai`, and `langgraph`. This allows developers
+to run code snippets with `uv run python <script>` to explore the use of this
+integration within the LangChain ecosystem. When running scripts that use
+Unstructured, include `--extra unstructured`.
+
 Install optional parser integrations when working on content handlers:
 
 ```bash
