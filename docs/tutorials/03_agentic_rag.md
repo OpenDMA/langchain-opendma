@@ -28,9 +28,20 @@ Based on this evaluation, the orchestrator then decides for its next move:
 This tutorial is using the same Alfresco Repository and OpenDMA endpoint we have
 set up during the last tutorial.
 
-Please follow the setup instructions in  [Metadata-Aware Retrieval](./02_metadata_aware_retrieval.md)
-if you have skipped this tutorial. Also make sure to add the additional "Engineering"
-site as well.
+Please follow the [Running Alfresco](./02_metadata_aware_retrieval.md#running-alfresco-community-edition)
+and [Running an OpenDMA Endpoint](02_metadata_aware_retrieval.md#running-an-opendma-endpoint-for-alfresco)
+instructions if you have skipped the previous tutorial. Also make sure to
+[add the "Engineering" site](./02_metadata_aware_retrieval.md#adding-more-content) as well.
+
+## Install Dependencies
+
+Install LangChain, the OpenDMA integration, and the optional Unstructured
+content handler dependencies:
+
+```bash
+pip install langchain langchain-openai langgraph langchain-opendma
+pip install "langchain-opendma[unstructured]"
+```
 
 ## Setup
 
