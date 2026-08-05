@@ -30,6 +30,11 @@ and use them for question answering.
 Use the additional information available in an ECM system to guide the information retrieval in order
 to improve retrieval [precision and recall](https://en.wikipedia.org/wiki/Precision_and_recall).
 
-## [Agentic RAG](./03_agentic_rag.md)
+## [Agentic RAG with Vector Store](./03_agentic_rag_vectorstore.md)
 Agentic workflow with an orchestrator responsible for coordinating searches against
 the knowledge base. The workflow can run multiple searches until relevant context is found.
+
+## [Agentic RAG with OpenDMA Retriever](./03_agentic_rag_retriever.md)
+Agentic RAG workflow that does not require a vector store for semantic search. Instead of building
+a knowledge base in advance, it uses the built-in search functionality of ECM systems and alters
+the search terms until relevant content has been found.
