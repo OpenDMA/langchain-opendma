@@ -20,6 +20,7 @@ from langchain_opendma.retrievers import (
     OnBaseRetriever,
     OpenDMARetriever,
 )
+from langchain_opendma.tools import AlfrescoToolkit, OpenDMAToolkit
 
 __version__ = "0.3.0.dev1"
 
@@ -35,4 +36,6 @@ __all__ = [
     "PlainTextHandler",
     "UnstructuredLoaderContentHandler",
     "DoclingLoaderContentHandler",
+    "OpenDMAToolkit",
+    "AlfrescoToolkit",
 ]

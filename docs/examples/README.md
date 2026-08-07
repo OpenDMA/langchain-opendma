@@ -91,6 +91,18 @@ Install the optional dependencies first:
 uv sync --extra docling
 ```
 
+### `07_tools.py`
+
+Demonstrates all tools in the `OpenDMAToolkit`.
+
+Uses the `DoclingLoaderContentHandler` with default configuration.
+
+Install the optional dependencies first:
+
+```bash
+uv sync --extra docling
+```
+
 ## Alfresco Examples
 
 Alfresco Community Edition is available free of charge. We use it to explore
