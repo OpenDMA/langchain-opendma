@@ -10,7 +10,7 @@ handler = UnstructuredLoaderContentHandler(
 )
 
 toolkit = OpenDMAToolkit(
-    endpoint="http://localhost:8088/opendma",
+    endpoint="http://localhost:8080/opendma",
     username="ignored",
     password="ignored",
     repository_id="sample-repo",
@@ -21,13 +21,24 @@ toolkit = OpenDMAToolkit(
 tools = toolkit.get_tools()
 
 system_prompt="""
-You answer questions using documents stored in an ECM repository via OpenDMA.
+You answer questions using documents stored in an ECM repository.
+
+In some cases, it is sufficient to locate the relevant documents in the
+repository and the use metadata of these documents to answer the users question.
+
+In other cases, the requested information is in the documents and you need to
+read the documents to answer the question. Reading documents is much more
+expensive than listing children or getting metadata. Use it carefully.
+
+Avoid guessing file names.
+
+Avoid reading an entire document.
 
 Use opendma_list_children to find candidate documents.
 Use opendma_get_metadata to inspect a candidate document.
 Use opendma_read_text to read document text.
 
-The root of the repository has the ID `sample-folder-root`
+The root of the repository has the ID `sample-folder-root`.
 
 Do not answer factual repository questions unless the answer is supported by
 tool results. If the repository does not contain enough information, say so.
@@ -69,18 +80,24 @@ def print_step(step: dict) -> None:
 
     print("-" * 80)
 
+print("Question: Who is the editor of the latest OpenDMA specification?\n-----\n")
+
 for step in agent.stream(
     {
         "messages": [
             {
                 "role": "user",
-                "content": "How are objects identified in OpenDMA?",
+                "content": "Who is the editor of the latest OpenDMA specification?",
             }
         ]
     },
     stream_mode="updates",
 ):
     print_step(step)
+
+print(f"\n{'-' * 80}\n")
+
+print("Question: Where can I find the latest OpenDMA specification?\n-----\n")
 
 for step in agent.stream(
     {
