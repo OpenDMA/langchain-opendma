@@ -198,6 +198,7 @@ class OpenDMAToolkit:
                 description="Get class, aspect, and scalar metadata for one OpenDMA object.",
                 func=self.get_metadata,
                 args_schema=OpenDMAGetMetadataInput,
+                handle_validation_error=self._format_validation_error,
             ),
             StructuredTool.from_function(
                 name="opendma_list_children",
@@ -207,6 +208,7 @@ class OpenDMAToolkit:
                 ),
                 func=self.list_children,
                 args_schema=OpenDMAListChildrenInput,
+                handle_validation_error=self._format_validation_error,
             ),
             StructuredTool.from_function(
                 name="opendma_read_text",
@@ -216,28 +218,35 @@ class OpenDMAToolkit:
                 ),
                 func=self.read_text,
                 args_schema=OpenDMAReadTextInput,
+                handle_validation_error=self._format_validation_error,
             ),
             StructuredTool.from_function(
                 name="opendma_describe_class",
                 description="Describe an OpenDMA type or aspect and its properties.",
                 func=self.describe_class,
                 args_schema=OpenDMADescribeClassInput,
+                handle_validation_error=self._format_validation_error,
             ),
         ]
 
     def get_metadata(self, object_id: str) -> dict[str, Any]:
         """Implementation for opendma_get_metadata."""
-        session = self._create_session()
         try:
-            obj = self._get_object(session, object_id)
-            metadata = self._extract_metadata(obj)
-            return {
-                "type_name": str(obj.get_odma_class().get_qname()),
-                "aspect_names": [str(aspect.get_qname()) for aspect in obj.get_aspects()],
-                "metadata": metadata,
-            }
-        finally:
-            session.close()
+            session = self._create_session()
+            try:
+                obj = self._get_object(session, object_id)
+                metadata = self._extract_metadata(obj)
+                return {
+                    "type_name": str(obj.get_odma_class().get_qname()),
+                    "aspect_names": [
+                        str(aspect.get_qname()) for aspect in obj.get_aspects()
+                    ],
+                    "metadata": metadata,
+                }
+            finally:
+                session.close()
+        except Exception as exc:
+            return self._tool_error("opendma_get_metadata", exc)
 
     def list_children(
         self,
@@ -249,50 +258,55 @@ class OpenDMAToolkit:
         included_metadata: list[str] | None = None,
     ) -> dict[str, Any]:
         """Implementation for opendma_list_children."""
-        session = self._create_session()
         try:
-            folder = self._get_object(session, object_id)
-            if not isinstance(folder, OdmaFolder):
-                raise ValueError(f"Object {object_id} is not an OpenDMA folder")
+            session = self._create_session()
+            try:
+                folder = self._get_object(session, object_id)
+                if not isinstance(folder, OdmaFolder):
+                    raise ValueError(f"Object {object_id} is not an OpenDMA folder")
 
-            children: list[Any] = []
-            if include_folders:
-                children.extend(folder.get_sub_folders())
-            if include_files:
-                children.extend(folder.get_containees())
+                children: list[Any] = []
+                if include_folders:
+                    children.extend(folder.get_sub_folders())
+                if include_files:
+                    children.extend(folder.get_containees())
 
-            if name_pattern:
+                if name_pattern:
+                    children = [
+                        child
+                        for child in children
+                        if fnmatch.fnmatchcase(self._object_name(child), name_pattern)
+                    ]
+
                 children = [
                     child
                     for child in children
-                    if fnmatch.fnmatchcase(self._object_name(child), name_pattern)
+                    if (include_folders and isinstance(child, OdmaFolder))
+                    or (include_files and isinstance(child, OdmaDocument))
                 ]
 
-            children = [
-                child
-                for child in children
-                if (include_folders and isinstance(child, OdmaFolder))
-                or (include_files and isinstance(child, OdmaDocument))
-            ]
+                # TODO: Replace this local offset token with OpenDMA native continuation
+                # tokens once the Python API exposes paged child listing.
+                offset = self._decode_offset_token(continuation_token)
+                page = children[offset : offset + self.child_page_size]
+                next_offset = offset + len(page)
+                has_more = next_offset < len(children)
 
-            # TODO: Replace this local offset token with OpenDMA native continuation
-            # tokens once the Python API exposes paged child listing.
-            offset = self._decode_offset_token(continuation_token)
-            page = children[offset : offset + self.child_page_size]
-            next_offset = offset + len(page)
-            has_more = next_offset < len(children)
-
-            result = OpenDMAListResult(
-                items=[
-                    self._object_item(child, included_metadata=included_metadata)
-                    for child in page
-                ],
-                has_more=has_more,
-                continuation_token=self._encode_offset_token(next_offset) if has_more else None,
-            )
-            return result.model_dump()
-        finally:
-            session.close()
+                result = OpenDMAListResult(
+                    items=[
+                        self._object_item(child, included_metadata=included_metadata)
+                        for child in page
+                    ],
+                    has_more=has_more,
+                    continuation_token=self._encode_offset_token(next_offset)
+                    if has_more
+                    else None,
+                )
+                return result.model_dump()
+            finally:
+                session.close()
+        except Exception as exc:
+            return self._tool_error("opendma_list_children", exc)
 
     def read_text(
         self,
@@ -300,40 +314,50 @@ class OpenDMAToolkit:
         chunk_continuation_token: str | None = None,
     ) -> dict[str, Any]:
         """Implementation for opendma_read_text."""
-        loader = OpenDMALoader(
-            endpoint=self.endpoint,
-            username=self.username,
-            password=self.password,
-            repository_id=self.repository_id,
-            document_ids=[object_id],
-            content_handlers=self.content_handlers,
-            raise_on_error=True,
-            warn_on_error=False,
-        )
-        documents = loader.load()
-
-        # TODO: Avoid loading all transformed chunks before paging once content
-        # handlers expose streaming transformation.
-        offset = self._decode_offset_token(chunk_continuation_token)
-        page = documents[offset : offset + self.read_chunk_page_size]
-        next_offset = offset + len(page)
-        has_more = next_offset < len(documents)
-
-        result = OpenDMAReadTextResult(
-            chunks=[
-                OpenDMAReadChunk(
-                    text=document.page_content,
-                    metadata=self._filter_metadata(document.metadata, None),
-                    chunk_index=offset + index,
+        try:
+            loader = OpenDMALoader(
+                endpoint=self.endpoint,
+                username=self.username,
+                password=self.password,
+                repository_id=self.repository_id,
+                document_ids=[object_id],
+                content_handlers=self.content_handlers,
+                raise_on_error=True,
+                warn_on_error=False,
+            )
+            documents = loader.load()
+            if not documents:
+                raise ValueError(
+                    f"No readable text content was returned for document {object_id}. "
+                    "The document may not exist, may have no primary content, may have "
+                    "empty content, or may use content that no configured handler can "
+                    "convert."
                 )
-                for index, document in enumerate(page)
-            ],
-            has_more=has_more,
-            chunk_continuation_token=self._encode_offset_token(next_offset)
-            if has_more
-            else None,
-        )
-        return result.model_dump()
+
+            # TODO: Avoid loading all transformed chunks before paging once content
+            # handlers expose streaming transformation.
+            offset = self._decode_offset_token(chunk_continuation_token)
+            page = documents[offset : offset + self.read_chunk_page_size]
+            next_offset = offset + len(page)
+            has_more = next_offset < len(documents)
+
+            result = OpenDMAReadTextResult(
+                chunks=[
+                    OpenDMAReadChunk(
+                        text=document.page_content,
+                        metadata=self._filter_metadata(document.metadata, None),
+                        chunk_index=offset + index,
+                    )
+                    for index, document in enumerate(page)
+                ],
+                has_more=has_more,
+                chunk_continuation_token=self._encode_offset_token(next_offset)
+                if has_more
+                else None,
+            )
+            return result.model_dump()
+        except Exception as exc:
+            return self._tool_error("opendma_read_text", exc)
 
     def search(
         self,
@@ -369,35 +393,56 @@ class OpenDMAToolkit:
 
     def describe_class(self, type_or_aspect_name: str) -> dict[str, Any]:
         """Implementation for opendma_describe_class."""
-        session = self._create_session()
         try:
-            repository = session.get_repository(self._repository_id())
-            odma_class = self._find_class(repository, type_or_aspect_name)
-            if odma_class is None:
-                raise ValueError(f"OpenDMA type or aspect not found: {type_or_aspect_name}")
+            session = self._create_session()
+            try:
+                repository = session.get_repository(self._repository_id())
+                odma_class = self._find_class(repository, type_or_aspect_name)
+                if odma_class is None:
+                    raise ValueError(
+                        f"OpenDMA type or aspect not found: {type_or_aspect_name}"
+                    )
 
-            declared = list(odma_class.get_declared_properties())
-            declared_names = {str(prop.get_qname()) for prop in declared}
-            inherited = [
-                prop
-                for prop in odma_class.get_properties()
-                if str(prop.get_qname()) not in declared_names
-            ]
-            parent = odma_class.get_super_class()
+                declared = list(odma_class.get_declared_properties())
+                declared_names = {str(prop.get_qname()) for prop in declared}
+                inherited = [
+                    prop
+                    for prop in odma_class.get_properties()
+                    if str(prop.get_qname()) not in declared_names
+                ]
+                parent = odma_class.get_super_class()
 
-            return {
-                "name": str(odma_class.get_qname()),
-                "kind": "aspect" if odma_class.get_aspect() else "type",
-                "parent": str(parent.get_qname()) if parent is not None else None,
-                "inherited_properties": [
-                    self._property_description(prop).model_dump() for prop in inherited
-                ],
-                "declared_properties": [
-                    self._property_description(prop).model_dump() for prop in declared
-                ],
-            }
-        finally:
-            session.close()
+                return {
+                    "name": str(odma_class.get_qname()),
+                    "kind": "aspect" if odma_class.get_aspect() else "type",
+                    "parent": str(parent.get_qname()) if parent is not None else None,
+                    "inherited_properties": [
+                        self._property_description(prop).model_dump()
+                        for prop in inherited
+                    ],
+                    "declared_properties": [
+                        self._property_description(prop).model_dump() for prop in declared
+                    ],
+                }
+            finally:
+                session.close()
+        except Exception as exc:
+            return self._tool_error("opendma_describe_class", exc)
+
+    def _tool_error(self, tool_name: str, exc: Exception) -> dict[str, Any]:
+        message = str(exc) or exc.__class__.__name__
+        return {
+            "error": True,
+            "tool": tool_name,
+            "error_type": exc.__class__.__name__,
+            "message": message,
+        }
+
+    def _format_validation_error(self, exc: Exception) -> str:
+        return json.dumps(
+            self._tool_error("tool_input_validation", exc),
+            ensure_ascii=False,
+        )
 
     def _create_session(self) -> Any:
         return opendma.remote.connect(
@@ -616,6 +661,7 @@ class AlfrescoToolkit(OpenDMAToolkit):
                 description=self._search_tool_description(),
                 func=self.search,
                 args_schema=OpenDMASearchInput,
+                handle_validation_error=self._format_validation_error,
             ),
             StructuredTool.from_function(
                 name="alfresco_list_sites",
@@ -625,37 +671,41 @@ class AlfrescoToolkit(OpenDMAToolkit):
                 ),
                 func=self.list_sites,
                 args_schema=AlfrescoListSitesInput,
+                handle_validation_error=self._format_validation_error,
             ),
         ]
 
-    def list_sites(self) -> list[dict[str, str]]:
+    def list_sites(self) -> list[dict[str, Any]]:
         """Implementation for alfresco_list_sites."""
-        session = self._create_session()
         try:
-            search_result = session.search(
-                self._repository_id(),
-                OdmaQName.from_string("alfresco:afts"),
-                'TYPE:"st:site"',
-            )
-
-            sites = []
-            for obj in search_result.get_objects():
-                if not isinstance(obj, OdmaFolder):
-                    continue
-                sites.append(
-                    SiteDescription(
-                        short_name=self._metadata_string(obj, "alfresco:cm:name"),
-                        title=self._metadata_string(obj, "alfresco:cm:title"),
-                        description=self._metadata_string(
-                            obj,
-                            "alfresco:cm:description",
-                        ),
-                        root_folder=str(obj.get_id()),
-                    )
+            session = self._create_session()
+            try:
+                search_result = session.search(
+                    self._repository_id(),
+                    OdmaQName.from_string("alfresco:afts"),
+                    'TYPE:"st:site"',
                 )
-            return [site.model_dump() for site in sites]
-        finally:
-            session.close()
+
+                sites = []
+                for obj in search_result.get_objects():
+                    if not isinstance(obj, OdmaFolder):
+                        continue
+                    sites.append(
+                        SiteDescription(
+                            short_name=self._metadata_string(obj, "alfresco:cm:name"),
+                            title=self._metadata_string(obj, "alfresco:cm:title"),
+                            description=self._metadata_string(
+                                obj,
+                                "alfresco:cm:description",
+                            ),
+                            root_folder=str(obj.get_id()),
+                        )
+                    )
+                return [site.model_dump() for site in sites]
+            finally:
+                session.close()
+        except Exception as exc:
+            return [self._tool_error("alfresco_list_sites", exc)]
 
     def search(
         self,
@@ -665,35 +715,38 @@ class AlfrescoToolkit(OpenDMAToolkit):
         included_metadata: list[str] | None = None,
     ) -> dict[str, Any]:
         """Implementation for opendma_search using Alfresco AFTS."""
-        query = self._build_afts_query(
-            full_text=full_text,
-            in_folder=in_folder,
-            include_subfolder_in_folder=include_subfolder_in_folder,
-        )
-
-        session = self._create_session()
         try:
-            search_result = session.search(
-                self._repository_id(),
-                OdmaQName.from_string("alfresco:afts"),
-                query,
+            query = self._build_afts_query(
+                full_text=full_text,
+                in_folder=in_folder,
+                include_subfolder_in_folder=include_subfolder_in_folder,
             )
 
-            items = []
-            for obj in search_result.get_objects():
-                if not isinstance(obj, OdmaDocument):
-                    continue
-                items.append(self._object_item(obj, included_metadata=included_metadata))
-                if len(items) >= self.search_result_limit:
-                    break
+            session = self._create_session()
+            try:
+                search_result = session.search(
+                    self._repository_id(),
+                    OdmaQName.from_string("alfresco:afts"),
+                    query,
+                )
 
-            return OpenDMAListResult(
-                items=items,
-                has_more=False,
-                continuation_token=None,
-            ).model_dump()
-        finally:
-            session.close()
+                items = []
+                for obj in search_result.get_objects():
+                    if not isinstance(obj, OdmaDocument):
+                        continue
+                    items.append(self._object_item(obj, included_metadata=included_metadata))
+                    if len(items) >= self.search_result_limit:
+                        break
+
+                return OpenDMAListResult(
+                    items=items,
+                    has_more=False,
+                    continuation_token=None,
+                ).model_dump()
+            finally:
+                session.close()
+        except Exception as exc:
+            return self._tool_error("opendma_search", exc)
 
     def _search_tool_description(self) -> str:
         return (

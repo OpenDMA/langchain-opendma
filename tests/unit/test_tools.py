@@ -38,14 +38,16 @@ class TestOpenDMAToolkit:
             tool.name: tool for tool in toolkit.get_tools()
         }["opendma_list_children"]
 
-        with pytest.raises(ValueError, match="include_folders and include_files"):
-            list_children_tool.invoke(
-                {
-                    "object_id": "folder",
-                    "include_folders": False,
-                    "include_files": False,
-                }
-            )
+        result = list_children_tool.invoke(
+            {
+                "object_id": "folder",
+                "include_folders": False,
+                "include_files": False,
+            }
+        )
+
+        assert "include_folders and include_files" in result
+        assert "tool_input_validation" in result
 
 
 class TestAlfrescoToolkit:
