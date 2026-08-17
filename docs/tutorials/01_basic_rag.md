@@ -9,9 +9,9 @@ to answer questions about the OpenDMA specification.
 
 ## Tutorial Repository
 
-OpenDMA provides a tutorial repository contains, among other things, the OpenDMA
-Specification as a PDF file. This repository comes in a convenient Docker image
-exposing the OpenDMA REST API:
+OpenDMA provides a tutorial repository which contains, among other things, the
+OpenDMA Specification as a PDF file. This repository comes in a convenient Docker
+image exposing the OpenDMA REST API:
 
 ```bash
 docker run -p 8080:8080 ghcr.io/opendma/tutorial-xmlrepo:0.8.1
