@@ -6,11 +6,15 @@ import base64
 import fnmatch
 import json
 import re
+from collections import OrderedDict
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import date, datetime
+from time import monotonic
 from typing import Any
 
 import opendma.remote
+from langchain_core.documents import Document
 from langchain_core.tools import BaseTool, StructuredTool
 from opendma.api import OdmaDocument, OdmaFolder, OdmaId, OdmaQName, OdmaType
 from pydantic import BaseModel, Field, model_validator
@@ -143,6 +147,12 @@ class SiteDescription(BaseModel):
     root_folder: str
 
 
+@dataclass
+class _ReadTextCacheEntry:
+    created_at: float
+    documents: list[Document]
+
+
 class OpenDMAToolkit:
     """Create read-only LangChain tools for a fixed OpenDMA repository.
 
@@ -176,6 +186,9 @@ class OpenDMAToolkit:
         content_handlers: list[ContentHandler] | None = None,
         child_page_size: int = 50,
         read_chunk_page_size: int = 3,
+        read_text_cache_enabled: bool = True,
+        read_text_cache_max_objects: int = 32,
+        read_text_cache_ttl_seconds: int | None = 21600,
     ) -> None:
         self.endpoint = endpoint
         self.username = username
@@ -184,11 +197,22 @@ class OpenDMAToolkit:
         self.content_handlers = content_handlers or [PlainTextHandler()]
         self.child_page_size = child_page_size
         self.read_chunk_page_size = read_chunk_page_size
+        self.read_text_cache_enabled = read_text_cache_enabled
+        self.read_text_cache_max_objects = read_text_cache_max_objects
+        self.read_text_cache_ttl_seconds = read_text_cache_ttl_seconds
+        self._read_text_cache: OrderedDict[str, _ReadTextCacheEntry] = OrderedDict()
 
         if self.child_page_size <= 0:
             raise ValueError("child_page_size must be greater than 0")
         if self.read_chunk_page_size <= 0:
             raise ValueError("read_chunk_page_size must be greater than 0")
+        if self.read_text_cache_max_objects <= 0:
+            raise ValueError("read_text_cache_max_objects must be greater than 0")
+        if (
+            self.read_text_cache_ttl_seconds is not None
+            and self.read_text_cache_ttl_seconds <= 0
+        ):
+            raise ValueError("read_text_cache_ttl_seconds must be greater than 0")
 
     def get_tools(self) -> list[BaseTool]:
         """Return the OpenDMA tools exposed by this toolkit."""
@@ -315,24 +339,7 @@ class OpenDMAToolkit:
     ) -> dict[str, Any]:
         """Implementation for opendma_read_text."""
         try:
-            loader = OpenDMALoader(
-                endpoint=self.endpoint,
-                username=self.username,
-                password=self.password,
-                repository_id=self.repository_id,
-                document_ids=[object_id],
-                content_handlers=self.content_handlers,
-                raise_on_error=True,
-                warn_on_error=False,
-            )
-            documents = loader.load()
-            if not documents:
-                raise ValueError(
-                    f"No readable text content was returned for document {object_id}. "
-                    "The document may not exist, may have no primary content, may have "
-                    "empty content, or may use content that no configured handler can "
-                    "convert."
-                )
+            documents = self._read_text_documents(object_id)
 
             # TODO: Avoid loading all transformed chunks before paging once content
             # handlers expose streaming transformation.
@@ -358,6 +365,55 @@ class OpenDMAToolkit:
             return result.model_dump()
         except Exception as exc:
             return self._tool_error("opendma_read_text", exc)
+
+    def _read_text_documents(self, object_id: str) -> list[Document]:
+        if not self.read_text_cache_enabled:
+            return self._load_read_text_documents(object_id)
+
+        cache_entry = self._read_text_cache.get(object_id)
+        if cache_entry is not None:
+            if not self._read_text_cache_entry_expired(cache_entry):
+                self._read_text_cache.move_to_end(object_id)
+                return cache_entry.documents
+            del self._read_text_cache[object_id]
+
+        documents = self._load_read_text_documents(object_id)
+        self._read_text_cache[object_id] = _ReadTextCacheEntry(
+            created_at=monotonic(),
+            documents=documents,
+        )
+        self._read_text_cache.move_to_end(object_id)
+
+        while len(self._read_text_cache) > self.read_text_cache_max_objects:
+            self._read_text_cache.popitem(last=False)
+
+        return documents
+
+    def _load_read_text_documents(self, object_id: str) -> list[Document]:
+        loader = OpenDMALoader(
+            endpoint=self.endpoint,
+            username=self.username,
+            password=self.password,
+            repository_id=self.repository_id,
+            document_ids=[object_id],
+            content_handlers=self.content_handlers,
+            raise_on_error=True,
+            warn_on_error=False,
+        )
+        documents = loader.load()
+        if not documents:
+            raise ValueError(
+                f"No readable text content was returned for document {object_id}. "
+                "The document may not exist, may have no primary content, may have "
+                "empty content, or may use content that no configured handler can "
+                "convert."
+            )
+        return documents
+
+    def _read_text_cache_entry_expired(self, entry: _ReadTextCacheEntry) -> bool:
+        if self.read_text_cache_ttl_seconds is None:
+            return False
+        return monotonic() - entry.created_at > self.read_text_cache_ttl_seconds
 
     def search(
         self,
@@ -638,6 +694,9 @@ class AlfrescoToolkit(OpenDMAToolkit):
         child_page_size: int = 50,
         read_chunk_page_size: int = 3,
         search_result_limit: int = 20,
+        read_text_cache_enabled: bool = True,
+        read_text_cache_max_objects: int = 32,
+        read_text_cache_ttl_seconds: int | None = 21600,
     ) -> None:
         super().__init__(
             endpoint=endpoint,
@@ -647,6 +706,9 @@ class AlfrescoToolkit(OpenDMAToolkit):
             content_handlers=content_handlers,
             child_page_size=child_page_size,
             read_chunk_page_size=read_chunk_page_size,
+            read_text_cache_enabled=read_text_cache_enabled,
+            read_text_cache_max_objects=read_text_cache_max_objects,
+            read_text_cache_ttl_seconds=read_text_cache_ttl_seconds,
         )
         self.search_result_limit = search_result_limit
         if self.search_result_limit <= 0:
