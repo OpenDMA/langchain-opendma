@@ -38,3 +38,7 @@ the knowledge base. The workflow can run multiple searches until relevant contex
 Agentic RAG workflow that does not require a vector store for semantic search. Instead of building
 a knowledge base in advance, it uses the built-in search functionality of ECM systems and alters
 the search terms until relevant content has been found.
+
+## [Tool-Calling Agent with Toolkit](./05_agent_tools.md)
+Simply tool-calling agent with OpenDMA toolkit. Observe how this agent is able to handle
+questions where RAG is failing.
