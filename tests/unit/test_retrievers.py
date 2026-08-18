@@ -148,6 +148,22 @@ class TestOpenDMARetriever:
         assert [document.page_content for document in documents] == ["result 0", "result 1"]
         assert retriever.yielded_documents == 2
 
+    def test_invoke_k_overrides_constructor_k(self) -> None:
+        retriever = RecordingOpenDMARetriever(
+            endpoint="http://localhost:8080/opendma",
+            username="ignored",
+            password="ignored",
+            repository_id="sample-repo",
+            query_language="test:test-query-language",
+            k=3,
+            document_count=5,
+        )
+
+        documents = retriever.invoke("test-raw input", k=1)
+
+        assert [document.page_content for document in documents] == ["result 0"]
+        assert retriever.yielded_documents == 1
+
     @pytest.mark.asyncio
     async def test_ainvoke_respects_k(self) -> None:
         retriever = RecordingOpenDMARetriever(
@@ -165,6 +181,23 @@ class TestOpenDMARetriever:
         assert [document.page_content for document in documents] == ["result 0", "result 1"]
         assert retriever.yielded_documents == 2
 
+    @pytest.mark.asyncio
+    async def test_ainvoke_k_overrides_constructor_k(self) -> None:
+        retriever = RecordingOpenDMARetriever(
+            endpoint="http://localhost:8080/opendma",
+            username="ignored",
+            password="ignored",
+            repository_id="sample-repo",
+            query_language="test:test-query-language",
+            k=3,
+            document_count=5,
+        )
+
+        documents = await retriever.ainvoke("test-raw input", k=1)
+
+        assert [document.page_content for document in documents] == ["result 0"]
+        assert retriever.yielded_documents == 1
+
     @pytest.mark.parametrize("k", [0, -1])
     def test_init_rejects_non_positive_k(self, k: int) -> None:
         with pytest.raises(ValueError, match="k must be greater than 0"):
@@ -176,6 +209,19 @@ class TestOpenDMARetriever:
                 query_language="test:test-query-language",
                 k=k,
             )
+
+    @pytest.mark.parametrize("k", [0, -1])
+    def test_invoke_rejects_non_positive_k(self, k: int) -> None:
+        retriever = RecordingOpenDMARetriever(
+            endpoint="http://localhost:8080/opendma",
+            username="ignored",
+            password="ignored",
+            repository_id="sample-repo",
+            query_language="test:test-query-language",
+        )
+
+        with pytest.raises(ValueError, match="k must be greater than 0"):
+            retriever.invoke("test-raw input", k=k)
 
 
 class TestAlfrescoRetriever:

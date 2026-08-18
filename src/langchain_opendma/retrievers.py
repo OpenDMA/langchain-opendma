@@ -74,8 +74,15 @@ class OpenDMARetriever(BaseRetriever):
     def model_post_init(self, __context: Any) -> None:
         """Validate retriever options after Pydantic initialization."""
         super().model_post_init(__context)
-        if self.k is not None and self.k <= 0:
+        self._validate_k(self.k)
+
+    def _validate_k(self, k: int | None) -> None:
+        if k is not None and k <= 0:
             raise ValueError("k must be greater than 0")
+
+    def _effective_k(self, k: int | None) -> int | None:
+        self._validate_k(k)
+        return k if k is not None else self.k
 
     def _build_query(self, query: str) -> str:
         """Build the OpenDMA query from the retriever input."""
@@ -101,13 +108,15 @@ class OpenDMARetriever(BaseRetriever):
         query: str,
         *,
         run_manager: CallbackManagerForRetrieverRun,  # noqa: ARG002
+        k: int | None = None,
     ) -> list[Document]:
         """Retrieve documents matching the query."""
         loader = self._create_loader(self._build_query(query))
+        effective_k = self._effective_k(k)
         documents: list[Document] = []
         for document in loader.lazy_load():
             documents.append(document)
-            if self.k is not None and len(documents) >= self.k:
+            if effective_k is not None and len(documents) >= effective_k:
                 break
         return documents
 
@@ -116,13 +125,15 @@ class OpenDMARetriever(BaseRetriever):
         query: str,
         *,
         run_manager: AsyncCallbackManagerForRetrieverRun,  # noqa: ARG002
+        k: int | None = None,
     ) -> list[Document]:
         """Retrieve documents matching the query asynchronously."""
         loader = self._create_loader(self._build_query(query))
+        effective_k = self._effective_k(k)
         documents: list[Document] = []
         async for document in loader.alazy_load():
             documents.append(document)
-            if self.k is not None and len(documents) >= self.k:
+            if effective_k is not None and len(documents) >= effective_k:
                 break
         return documents
 
