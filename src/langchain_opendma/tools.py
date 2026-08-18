@@ -43,6 +43,7 @@ class OpenDMAObjectItem(BaseModel):
 
     object_id: str
     type_name: str
+    aspect_names: list[str]
     name: str
     metadata: dict[str, MetadataValue]
 
@@ -571,16 +572,14 @@ class OpenDMAToolkit:
         return OpenDMAObjectItem(
             object_id=str(obj.get_id()),
             type_name=str(obj.get_odma_class().get_qname()),
+            aspect_names=[str(aspect.get_qname()) for aspect in obj.get_aspects()],
             name=self._object_name(obj),
             metadata=self._filter_metadata(self._extract_metadata(obj), included_metadata),
         )
 
     def _object_name(self, obj: Any) -> str:
-        title = obj.get_title() if hasattr(obj, "get_title") else None
-        if title:
-            return str(title)
         metadata = self._extract_metadata(obj)
-        for key in ("opendma:Name", "opendma:Title", "alfresco:cm:name", "alfresco:cm:title"):
+        for key in ("opendma:Name", "opendma:Title"):
             value = metadata.get(key)
             if isinstance(value, str) and value:
                 return value
@@ -592,17 +591,10 @@ class OpenDMAToolkit:
         included_metadata: list[str] | None,
     ) -> dict[str, MetadataValue]:
         if included_metadata is None:
-            included_metadata = [
-                "opendma:Name",
-                "opendma:Title",
-                "content_file_name",
-                "content_state",
-                "content_mime_type",
-                "alfresco:cm:name",
-                "alfresco:cm:title",
-                "alfresco:Site",
-                "alfresco:Path",
-            ]
+            return {
+                key: self._metadata_value(value)
+                for key, value in metadata.items()
+            }
         return {
             key: self._metadata_value(value)
             for key, value in metadata.items()
