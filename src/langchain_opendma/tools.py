@@ -209,10 +209,7 @@ class OpenDMAToolkit:
             raise ValueError("read_chunk_page_size must be greater than 0")
         if self.read_text_cache_max_objects <= 0:
             raise ValueError("read_text_cache_max_objects must be greater than 0")
-        if (
-            self.read_text_cache_ttl_seconds is not None
-            and self.read_text_cache_ttl_seconds <= 0
-        ):
+        if self.read_text_cache_ttl_seconds is not None and self.read_text_cache_ttl_seconds <= 0:
             raise ValueError("read_text_cache_ttl_seconds must be greater than 0")
 
     def get_tools(self) -> list[BaseTool]:
@@ -263,9 +260,7 @@ class OpenDMAToolkit:
                 metadata = self._extract_metadata(obj)
                 return {
                     "type_name": str(obj.get_odma_class().get_qname()),
-                    "aspect_names": [
-                        str(aspect.get_qname()) for aspect in obj.get_aspects()
-                    ],
+                    "aspect_names": [str(aspect.get_qname()) for aspect in obj.get_aspects()],
                     "metadata": metadata,
                 }
             finally:
@@ -323,9 +318,7 @@ class OpenDMAToolkit:
                         for child in page
                     ],
                     has_more=has_more,
-                    continuation_token=self._encode_offset_token(next_offset)
-                    if has_more
-                    else None,
+                    continuation_token=self._encode_offset_token(next_offset) if has_more else None,
                 )
                 return result.model_dump()
             finally:
@@ -494,9 +487,7 @@ class OpenDMAToolkit:
                 repository = session.get_repository(self._repository_id())
                 odma_class = self._find_class(repository, type_or_aspect_name)
                 if odma_class is None:
-                    raise ValueError(
-                        f"OpenDMA type or aspect not found: {type_or_aspect_name}"
-                    )
+                    raise ValueError(f"OpenDMA type or aspect not found: {type_or_aspect_name}")
 
                 declared = list(odma_class.get_declared_properties())
                 declared_names = {str(prop.get_qname()) for prop in declared}
@@ -512,8 +503,7 @@ class OpenDMAToolkit:
                     "kind": "aspect" if odma_class.get_aspect() else "type",
                     "parent": str(parent.get_qname()) if parent is not None else None,
                     "inherited_properties": [
-                        self._property_description(prop).model_dump()
-                        for prop in inherited
+                        self._property_description(prop).model_dump() for prop in inherited
                     ],
                     "declared_properties": [
                         self._property_description(prop).model_dump() for prop in declared
@@ -629,10 +619,7 @@ class OpenDMAToolkit:
         included_metadata: list[str] | None,
     ) -> dict[str, MetadataValue]:
         if included_metadata is None:
-            return {
-                key: self._metadata_value(value)
-                for key, value in metadata.items()
-            }
+            return {key: self._metadata_value(value) for key, value in metadata.items()}
         return {
             key: self._metadata_value(value)
             for key, value in metadata.items()
