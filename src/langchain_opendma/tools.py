@@ -694,19 +694,15 @@ class OpenDMAToolkit:
         return offset
 
 
-class AlfrescoToolkit(OpenDMAToolkit):
-    """Create read-only LangChain tools for Alfresco via OpenDMA.
-
-    This toolkit keeps the same public tool names as OpenDMAToolkit, but
-    implements ``opendma_search`` using Alfresco AFTS.
-    """
+class _SearchToolkit(OpenDMAToolkit):
+    query_language: str
 
     def __init__(
         self,
         endpoint: str,
         username: str,
         password: str,
-        repository_id: str = "Alfresco",
+        repository_id: str,
         content_handlers: list[ContentHandler] | None = None,
         child_page_size: int = 50,
         read_chunk_page_size: int = 3,
@@ -732,10 +728,90 @@ class AlfrescoToolkit(OpenDMAToolkit):
             raise ValueError("search_result_limit must be greater than 0")
 
     def get_tools(self) -> list[BaseTool]:
-        """Return OpenDMA tools plus Alfresco-specific tools."""
+        """Return OpenDMA tools plus a platform-specific search tool."""
         return [
             *super().get_tools(),
             self._search_tool(),
+        ]
+
+    def search(
+        self,
+        full_text: str | None = None,
+        in_folder: str | None = None,
+        include_subfolder_in_folder: bool | None = None,
+        included_metadata: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Implementation for opendma_search using a platform query language."""
+        try:
+            query = self._build_search_query(
+                full_text=full_text,
+                in_folder=in_folder,
+                include_subfolder_in_folder=include_subfolder_in_folder,
+            )
+            return self._run_search(
+                query_language=self.query_language,
+                query=query,
+                included_metadata=included_metadata,
+                search_result_limit=self.search_result_limit,
+            )
+        except Exception as exc:
+            return self._tool_error("opendma_search", exc)
+
+    def _build_search_query(
+        self,
+        full_text: str | None,
+        in_folder: str | None,
+        include_subfolder_in_folder: bool | None,
+    ) -> str:
+        raise NotImplementedError
+
+    def _split_words(self, full_text: str | None) -> list[str]:
+        if full_text is None:
+            return []
+        return re.sub(r"\s+", " ", full_text).strip().split()
+
+
+class AlfrescoToolkit(_SearchToolkit):
+    """Create read-only LangChain tools for Alfresco via OpenDMA.
+
+    This toolkit keeps the same public tool names as OpenDMAToolkit, but
+    implements ``opendma_search`` using Alfresco AFTS.
+    """
+
+    query_language = "alfresco:afts"
+
+    def __init__(
+        self,
+        endpoint: str,
+        username: str,
+        password: str,
+        repository_id: str = "Alfresco",
+        content_handlers: list[ContentHandler] | None = None,
+        child_page_size: int = 50,
+        read_chunk_page_size: int = 3,
+        search_result_limit: int = 20,
+        read_text_cache_enabled: bool = True,
+        read_text_cache_max_objects: int = 32,
+        read_text_cache_ttl_seconds: int | None = 21600,
+    ) -> None:
+        super().__init__(
+            endpoint=endpoint,
+            username=username,
+            password=password,
+            repository_id=repository_id,
+            content_handlers=content_handlers,
+            child_page_size=child_page_size,
+            read_chunk_page_size=read_chunk_page_size,
+            search_result_limit=search_result_limit,
+            read_text_cache_enabled=read_text_cache_enabled,
+            read_text_cache_max_objects=read_text_cache_max_objects,
+            read_text_cache_ttl_seconds=read_text_cache_ttl_seconds,
+        )
+
+    def get_tools(self) -> list[BaseTool]:
+        """Return OpenDMA tools plus Alfresco-specific tools."""
+        return [
+            *super().get_tools(),
             StructuredTool.from_function(
                 name="alfresco_list_sites",
                 description=(
@@ -780,29 +856,6 @@ class AlfrescoToolkit(OpenDMAToolkit):
         except Exception as exc:
             return [self._tool_error("alfresco_list_sites", exc)]
 
-    def search(
-        self,
-        full_text: str | None = None,
-        in_folder: str | None = None,
-        include_subfolder_in_folder: bool | None = None,
-        included_metadata: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """Implementation for opendma_search using Alfresco AFTS."""
-        try:
-            query = self._build_afts_query(
-                full_text=full_text,
-                in_folder=in_folder,
-                include_subfolder_in_folder=include_subfolder_in_folder,
-            )
-            return self._run_search(
-                query_language="alfresco:afts",
-                query=query,
-                included_metadata=included_metadata,
-                search_result_limit=self.search_result_limit,
-                )
-        except Exception as exc:
-            return self._tool_error("opendma_search", exc)
-
     def _search_tool_description(self) -> str:
         return (
             "Search Alfresco documents via OpenDMA using Alfresco AFTS. "
@@ -810,7 +863,7 @@ class AlfrescoToolkit(OpenDMAToolkit):
             "to a folder."
         )
 
-    def _build_afts_query(
+    def _build_search_query(
         self,
         full_text: str | None,
         in_folder: str | None,
