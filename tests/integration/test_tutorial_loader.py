@@ -120,7 +120,7 @@ def test_load_documents_with_all_content_states(tutorial_endpoint: str) -> None:
     """Load tutorial documents representing all content states."""
     expected_content_states = {
         "hello-world-document": "Processed",
-        "sample-document-a1": "Unsupported",
+        "opendma-spec-document": "Unsupported",
         "sample-no-content-document": "Missing",
     }
     loader = OpenDMALoader(
