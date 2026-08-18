@@ -966,8 +966,7 @@ class FileNetP8Toolkit(_SearchToolkit):
         parts = object_id.split(":")
         if len(parts) != 3:
             raise ValueError(
-                "FileNet folder object ID must have the format "
-                "'objectstore:<classId>:<objectId>'"
+                "FileNet folder object ID must have the format 'objectstore:<classId>:<objectId>'"
             )
         if parts[0] != "objectstore":
             raise ValueError("FileNet folder object ID must start with 'objectstore:'")
