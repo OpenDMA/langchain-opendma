@@ -2,56 +2,407 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Iterable
+from typing import Any, cast
 
 import pytest
 from langchain_core.documents import Document
+from opendma.api import (
+    CLASS_CLASS,
+    CLASS_DOCUMENT,
+    CLASS_FOLDER,
+    CLASS_PROPERTYINFO,
+    PROPERTY_ASPECTS,
+    PROPERTY_CLASS,
+    PROPERTY_DATATYPE,
+    PROPERTY_DISPLAYNAME,
+    PROPERTY_HIDDEN,
+    PROPERTY_MULTIVALUE,
+    PROPERTY_NAME,
+    PROPERTY_NAMESPACE,
+    PROPERTY_PROPERTIES,
+    PROPERTY_READONLY,
+    PROPERTY_REFERENCECLASS,
+    PROPERTY_REQUIRED,
+    PROPERTY_SYSTEM,
+    OdmaClass,
+    OdmaCoreObject,
+    OdmaId,
+    OdmaObject,
+    OdmaProperty,
+    OdmaPropertyImpl,
+    OdmaPropertyNotFoundException,
+    OdmaQName,
+    OdmaRepository,
+    OdmaSearchResult,
+    OdmaServiceException,
+    OdmaSession,
+    OdmaType,
+    odma_create_proxy,
+)
 
 import langchain_opendma.tools as tools_module
-from langchain_opendma import AlfrescoToolkit, OpenDMAToolkit
+from langchain_opendma import (
+    AlfrescoToolkit,
+    DocumentumToolkit,
+    FileNetP8Toolkit,
+    OnBaseToolkit,
+    OpenDMAToolkit,
+)
+
+
+class FakeCoreObject(OdmaCoreObject):
+    """OpenDMA core object test double used by generated object proxies."""
+
+    def __init__(
+        self,
+        properties: dict[OdmaQName, OdmaProperty],
+        complete: bool = True,
+    ) -> None:
+        self.properties = properties
+        self.complete = complete
+
+    def get_property(self, property_name: OdmaQName) -> OdmaProperty:
+        try:
+            return self.properties[property_name]
+        except KeyError:
+            if self.complete:
+                raise OdmaPropertyNotFoundException(propertyName=property_name) from None
+            self.prepare_properties([property_name], False)
+            try:
+                return self.properties[property_name]
+            except KeyError:
+                raise OdmaPropertyNotFoundException(propertyName=property_name) from None
+
+    def prepare_properties(
+        self,
+        property_names: list[OdmaQName] | None,
+        refresh: bool,
+    ) -> None:
+        pass
+
+    def set_property(self, property_name: OdmaQName, new_value: Any) -> None:
+        prop = self.get_property(property_name)
+        prop.set_value(new_value)
+
+    def is_dirty(self) -> bool:
+        return any(prop.is_dirty() for prop in self.properties.values())
+
+    def save(self) -> None:
+        pass
+
+    def instance_of(self, class_or_aspect_name: OdmaQName) -> bool:
+        test = self._internal_get_odma_class()
+        while test is not None:
+            if test.get_qname() == class_or_aspect_name:
+                return True
+            aspects = test.get_included_aspects()
+            if aspects is not None:
+                for aspect in aspects:
+                    if aspect.get_qname() == class_or_aspect_name:
+                        return True
+            test = test.get_super_class()
+        for aspect in self._internal_get_odma_aspects():
+            while aspect is not None:
+                if aspect.get_qname() == class_or_aspect_name:
+                    return True
+                aspect = aspect.get_super_class()
+        return False
+
+    def _internal_get_odma_class(self) -> Any:
+        clazz = self.get_property(PROPERTY_CLASS).get_reference()
+        if isinstance(clazz, OdmaClass):
+            return clazz
+        raise OdmaServiceException("Invalid class of object")
+
+    def _internal_get_odma_aspects(self) -> Iterable[OdmaClass]:
+        return cast(
+            Iterable[OdmaClass],
+            self.get_property(PROPERTY_ASPECTS).get_reference_iterable(),
+        )
+
+
+def _qname(value: str) -> OdmaQName:
+    return OdmaQName.from_string(value)
+
+
+def create_fake_document(props: list[OdmaProperty]) -> OdmaObject:
+    fake_class = create_fake_class(OdmaQName("fake", "Document"), props)
+    properties: dict[OdmaQName, OdmaProperty] = {
+        PROPERTY_CLASS: OdmaPropertyImpl(
+            PROPERTY_CLASS,
+            fake_class,
+            None,
+            OdmaType.REFERENCE,
+            False,
+            False,
+        ),
+        PROPERTY_ASPECTS: OdmaPropertyImpl(
+            PROPERTY_ASPECTS,
+            [],
+            None,
+            OdmaType.REFERENCE,
+            True,
+            False,
+        ),
+    }
+    properties.update({prop.get_name(): prop for prop in props})
+    return odma_create_proxy([CLASS_DOCUMENT], FakeCoreObject(properties))
+
+
+def create_fake_folder(props: list[OdmaProperty]) -> OdmaObject:
+    fake_class = create_fake_class(OdmaQName("fake", "Folder"), props)
+    properties: dict[OdmaQName, OdmaProperty] = {
+        PROPERTY_CLASS: OdmaPropertyImpl(
+            PROPERTY_CLASS,
+            fake_class,
+            None,
+            OdmaType.REFERENCE,
+            False,
+            False,
+        ),
+        PROPERTY_ASPECTS: OdmaPropertyImpl(
+            PROPERTY_ASPECTS,
+            [],
+            None,
+            OdmaType.REFERENCE,
+            True,
+            False,
+        ),
+    }
+    properties.update({prop.get_name(): prop for prop in props})
+    return odma_create_proxy([CLASS_FOLDER], FakeCoreObject(properties))
+
+
+def create_fake_property_info(prop: OdmaProperty) -> OdmaObject:
+    prop_name = prop.get_name()
+    properties: dict[OdmaQName, OdmaProperty] = {
+        PROPERTY_NAME: OdmaPropertyImpl(
+            PROPERTY_NAME,
+            prop_name.name,
+            None,
+            OdmaType.STRING,
+            False,
+            False,
+        ),
+        PROPERTY_NAMESPACE: OdmaPropertyImpl(
+            PROPERTY_NAMESPACE,
+            prop_name.namespace,
+            None,
+            OdmaType.STRING,
+            False,
+            False,
+        ),
+        PROPERTY_DISPLAYNAME: OdmaPropertyImpl(
+            PROPERTY_DISPLAYNAME,
+            prop_name.name,
+            None,
+            OdmaType.STRING,
+            False,
+            False,
+        ),
+        PROPERTY_DATATYPE: OdmaPropertyImpl(
+            PROPERTY_DATATYPE,
+            prop.get_type().value,
+            None,
+            OdmaType.INTEGER,
+            False,
+            False,
+        ),
+        PROPERTY_REFERENCECLASS: OdmaPropertyImpl(
+            PROPERTY_REFERENCECLASS,
+            None,
+            None,
+            OdmaType.REFERENCE,
+            False,
+            False,
+        ),
+        PROPERTY_MULTIVALUE: OdmaPropertyImpl(
+            PROPERTY_MULTIVALUE,
+            prop.is_multi_value(),
+            None,
+            OdmaType.BOOLEAN,
+            False,
+            False,
+        ),
+        PROPERTY_REQUIRED: OdmaPropertyImpl(
+            PROPERTY_REQUIRED,
+            False,
+            None,
+            OdmaType.BOOLEAN,
+            False,
+            False,
+        ),
+        PROPERTY_READONLY: OdmaPropertyImpl(
+            PROPERTY_READONLY,
+            True,
+            None,
+            OdmaType.BOOLEAN,
+            False,
+            False,
+        ),
+        PROPERTY_HIDDEN: OdmaPropertyImpl(
+            PROPERTY_HIDDEN,
+            False,
+            None,
+            OdmaType.BOOLEAN,
+            False,
+            False,
+        ),
+        PROPERTY_SYSTEM: OdmaPropertyImpl(
+            PROPERTY_SYSTEM,
+            False,
+            None,
+            OdmaType.BOOLEAN,
+            False,
+            False,
+        ),
+    }
+    return odma_create_proxy([CLASS_PROPERTYINFO], FakeCoreObject(properties))
+
+
+def create_fake_class(class_name: OdmaQName, props: list[OdmaProperty]) -> OdmaObject:
+    properties: dict[OdmaQName, OdmaProperty] = {
+        PROPERTY_NAME: OdmaPropertyImpl(
+            PROPERTY_NAME,
+            class_name.name,
+            None,
+            OdmaType.STRING,
+            False,
+            False,
+        ),
+        PROPERTY_NAMESPACE: OdmaPropertyImpl(
+            PROPERTY_NAMESPACE,
+            class_name.namespace,
+            None,
+            OdmaType.STRING,
+            False,
+            False,
+        ),
+        PROPERTY_PROPERTIES: OdmaPropertyImpl(
+            PROPERTY_PROPERTIES,
+            [create_fake_property_info(prop) for prop in props],
+            None,
+            OdmaType.REFERENCE,
+            True,
+            False,
+        ),
+    }
+    return odma_create_proxy([CLASS_CLASS], FakeCoreObject(properties))
+
+
+def create_fake_doc_a() -> OdmaObject:
+    props = [
+        OdmaPropertyImpl(
+            OdmaQName("opendma", "Id"),
+            OdmaId("doc-a"),
+            None,
+            OdmaType.ID,
+            False,
+            False,
+        ),
+        OdmaPropertyImpl(
+            OdmaQName("opendma", "Title"),
+            "Hello, doc!",
+            None,
+            OdmaType.STRING,
+            False,
+            False,
+        ),
+        OdmaPropertyImpl(
+            OdmaQName("test", "CustomProperty"),
+            "custom value",
+            None,
+            OdmaType.STRING,
+            False,
+            False,
+        ),
+    ]
+    return create_fake_document(props)
+
+
+def create_fake_folder_a() -> OdmaObject:
+    props = [
+        OdmaPropertyImpl(
+            OdmaQName("opendma", "Id"),
+            OdmaId("folder-a"),
+            None,
+            OdmaType.ID,
+            False,
+            False,
+        ),
+        OdmaPropertyImpl(
+            OdmaQName("opendma", "Name"),
+            "Hello, Folder!",
+            None,
+            OdmaType.STRING,
+            False,
+            False,
+        ),
+    ]
+    return create_fake_folder(props)
+
+
+class FakeSearchResult(OdmaSearchResult):
+    """OpenDMA search result test double."""
+
+    _items: list[OdmaObject]
+
+    def __init__(self, items: list[OdmaObject]) -> None:
+        self._items = items
+
+    def get_objects(self) -> Iterable[OdmaObject]:
+        return iter(self._items)
+
+    def get_size(self) -> int:
+        return self._items.__len__()
+
+
+class FakeOdmaSession(OdmaSession):
+    """OpenDMA session test double that records search calls."""
+
+    def __init__(self, objects: list[OdmaObject] | None = None) -> None:
+        self.objects = objects or [create_fake_doc_a(), create_fake_folder_a()]
+        self.query_language: str | None = None
+        self.query: str | None = None
+        self.closed = False
+
+    def get_repository_ids(self) -> list[OdmaId]:
+        raise RuntimeError("get_repository_ids is not implemented for this test")
+
+    def get_repository(self, repository_id: OdmaId) -> OdmaRepository:
+        _ = repository_id
+        raise RuntimeError("get_repository is not implemented for this test")
+
+    def get_object(
+        self,
+        repository_id: OdmaId,
+        object_id: OdmaId,
+        property_names: list[OdmaQName] | None,
+    ) -> OdmaObject:
+        _ = repository_id, object_id, property_names
+        raise RuntimeError("get_object is not implemented for this test")
+
+    def search(
+        self,
+        repository_id: OdmaId,
+        query_language: OdmaQName,
+        query: str,
+    ) -> OdmaSearchResult:
+        _ = repository_id
+        self.query_language = str(query_language)
+        self.query = query
+        return FakeSearchResult(self.objects)
+
+    def get_supported_query_languages(self) -> list[OdmaQName]:
+        raise RuntimeError("get_supported_query_languages is not implemented for this test")
+
+    def close(self) -> None:
+        self.closed = True
 
 
 class TestOpenDMAToolkit:
     """Test cases for OpenDMAToolkit public tool contract."""
-
-    def test_get_tools_returns_initial_tool_set(self) -> None:
-        toolkit = OpenDMAToolkit(
-            endpoint="http://localhost:8080/opendma",
-            username="ignored",
-            password="ignored",
-            repository_id="sample-repo",
-        )
-
-        tools = toolkit.get_tools()
-
-        assert [tool.name for tool in tools] == [
-            "opendma_get_metadata",
-            "opendma_list_children",
-            "opendma_read_text",
-            "opendma_describe_class",
-        ]
-
-    def test_list_children_rejects_disabled_folders_and_files(self) -> None:
-        toolkit = OpenDMAToolkit(
-            endpoint="http://localhost:8080/opendma",
-            username="ignored",
-            password="ignored",
-            repository_id="sample-repo",
-        )
-        list_children_tool = {
-            tool.name: tool for tool in toolkit.get_tools()
-        }["opendma_list_children"]
-
-        result = list_children_tool.invoke(
-            {
-                "object_id": "folder",
-                "include_folders": False,
-                "include_files": False,
-            }
-        )
-
-        assert "include_folders and include_files" in result
-        assert "tool_input_validation" in result
 
     def test_read_text_uses_cached_documents_for_next_page(
         self,
@@ -184,82 +535,106 @@ class TestOpenDMAToolkit:
 class TestAlfrescoToolkit:
     """Test cases for AlfrescoToolkit public tool contract."""
 
-    def test_get_tools_adds_alfresco_site_tool(self) -> None:
+    def test_search_uses_alfresco_query_language_and_returns_items(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        session = FakeOdmaSession()
+        toolkit = AlfrescoToolkit(
+            endpoint="http://localhost:7070/opendma/alf",
+            username="admin",
+            password="admin",
+        )
+        monkeypatch.setattr(toolkit, "_create_session", lambda: session)
+
+        result = toolkit.search(full_text="website design")
+
+        assert session.query_language == "alfresco:afts"
+        assert session.query
+        assert session.closed
+
+        print(result)
+
+        assert "items" in result
+        assert isinstance(result["items"], list)
+        assert len(result["items"]) == 2
+        assert isinstance(result["items"][0], dict)
+        assert result["items"][0]["object_id"] == "doc-a"
+        assert isinstance(result["items"][1], dict)
+        assert result["items"][1]["object_id"] == "folder-a"
+
+    def test_search_accepts_non_document_results(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        session = FakeOdmaSession()
+        toolkit = AlfrescoToolkit(
+            endpoint="http://localhost:7070/opendma/alf",
+            username="admin",
+            password="admin",
+        )
+        monkeypatch.setattr(toolkit, "_create_session", lambda: session)
+
+        result = toolkit.search(full_text="website design")
+
+        assert "items" in result
+        assert isinstance(result["items"], list)
+        assert len(result["items"]) == 2
+        assert isinstance(result["items"][0], dict)
+        assert result["items"][0]["object_id"] == "doc-a"
+        assert isinstance(result["items"][1], dict)
+        assert result["items"][1]["object_id"] == "folder-a"
+
+    def test_search_includes_all_metadata_by_default(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        session = FakeOdmaSession()
+        toolkit = AlfrescoToolkit(
+            endpoint="http://localhost:7070/opendma/alf",
+            username="admin",
+            password="admin",
+        )
+        monkeypatch.setattr(toolkit, "_create_session", lambda: session)
+
+        result = toolkit.search(full_text="website design")
+
+        assert result["items"][0]["metadata"] == {
+            "opendma:Id": "doc-a",
+            "opendma:Title": "Hello, doc!",
+            "test:CustomProperty": "custom value",
+        }
+
+    def test_search_limits_metadata_when_requested(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        session = FakeOdmaSession()
+        toolkit = AlfrescoToolkit(
+            endpoint="http://localhost:7070/opendma/alf",
+            username="admin",
+            password="admin",
+        )
+        monkeypatch.setattr(toolkit, "_create_session", lambda: session)
+
+        result = toolkit.search(
+            full_text="website design",
+            included_metadata=["test:CustomProperty"],
+        )
+
+        assert result["items"][0]["metadata"] == {"test:CustomProperty": "custom value"}
+
+    def test_search_returns_error_payload_for_empty_alfresco_search(self) -> None:
         toolkit = AlfrescoToolkit(
             endpoint="http://localhost:7070/opendma/alf",
             username="admin",
             password="admin",
         )
 
-        tools = toolkit.get_tools()
+        result = toolkit.search(full_text=" ")
 
-        assert [tool.name for tool in tools] == [
-            "opendma_get_metadata",
-            "opendma_list_children",
-            "opendma_read_text",
-            "opendma_describe_class",
-            "opendma_search",
-            "alfresco_list_sites",
-        ]
-
-    def test_build_afts_query_uses_full_text(self) -> None:
-        toolkit = AlfrescoToolkit(
-            endpoint="http://localhost:7070/opendma/alf",
-            username="admin",
-            password="admin",
-        )
-
-        query = toolkit._build_afts_query(  # noqa: SLF001
-            full_text='website "design"',
-            in_folder=None,
-            include_subfolder_in_folder=None,
-        )
-
-        assert query == r'TEXT:"website \"design\""'
-
-    def test_build_afts_query_uses_parent_for_direct_folder_children(self) -> None:
-        toolkit = AlfrescoToolkit(
-            endpoint="http://localhost:7070/opendma/alf",
-            username="admin",
-            password="admin",
-        )
-
-        query = toolkit._build_afts_query(  # noqa: SLF001
-            full_text="localisation",
-            in_folder="node:1234",
-            include_subfolder_in_folder=False,
-        )
-
-        assert query == 'TEXT:"localisation" AND PARENT:"workspace://SpacesStore/1234"'
-
-    def test_build_afts_query_uses_ancestor_for_recursive_folder_search(self) -> None:
-        toolkit = AlfrescoToolkit(
-            endpoint="http://localhost:7070/opendma/alf",
-            username="admin",
-            password="admin",
-        )
-
-        query = toolkit._build_afts_query(  # noqa: SLF001
-            full_text=None,
-            in_folder="workspace://SpacesStore/1234",
-            include_subfolder_in_folder=True,
-        )
-
-        assert query == 'ANCESTOR:"workspace://SpacesStore/1234"'
-
-    def test_build_afts_query_rejects_empty_search(self) -> None:
-        toolkit = AlfrescoToolkit(
-            endpoint="http://localhost:7070/opendma/alf",
-            username="admin",
-            password="admin",
-        )
-
-        with pytest.raises(ValueError, match="full_text or in_folder"):
-            toolkit._build_afts_query(  # noqa: SLF001
-                full_text=" ",
-                in_folder=None,
-                include_subfolder_in_folder=None,
-            )
+        assert result["error"] is True
+        assert result["tool"] == "opendma_search"
 
     @pytest.mark.parametrize(
         ("child_page_size", "read_chunk_page_size"),
