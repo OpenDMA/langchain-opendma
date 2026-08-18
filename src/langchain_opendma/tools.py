@@ -448,6 +448,44 @@ class OpenDMAToolkit:
             "constraints. The portable query backend is still under development."
         )
 
+    def _search_tool(self) -> BaseTool:
+        return StructuredTool.from_function(
+            name="opendma_search",
+            description=self._search_tool_description(),
+            func=self.search,
+            args_schema=OpenDMASearchInput,
+            handle_validation_error=self._format_validation_error,
+        )
+
+    def _run_search(
+        self,
+        query_language: str,
+        query: str,
+        included_metadata: list[str] | None,
+        search_result_limit: int,
+    ) -> dict[str, Any]:
+        session = self._create_session()
+        try:
+            search_result = session.search(
+                self._repository_id(),
+                OdmaQName.from_string(query_language),
+                query,
+            )
+
+            items = []
+            for obj in search_result.get_objects():
+                items.append(self._object_item(obj, included_metadata=included_metadata))
+                if len(items) >= search_result_limit:
+                    break
+
+            return OpenDMAListResult(
+                items=items,
+                has_more=False,
+                continuation_token=None,
+            ).model_dump()
+        finally:
+            session.close()
+
     def describe_class(self, type_or_aspect_name: str) -> dict[str, Any]:
         """Implementation for opendma_describe_class."""
         try:
@@ -710,13 +748,7 @@ class AlfrescoToolkit(OpenDMAToolkit):
         """Return OpenDMA tools plus Alfresco-specific tools."""
         return [
             *super().get_tools(),
-            StructuredTool.from_function(
-                name="opendma_search",
-                description=self._search_tool_description(),
-                func=self.search,
-                args_schema=OpenDMASearchInput,
-                handle_validation_error=self._format_validation_error,
-            ),
+            self._search_tool(),
             StructuredTool.from_function(
                 name="alfresco_list_sites",
                 description=(
@@ -775,30 +807,12 @@ class AlfrescoToolkit(OpenDMAToolkit):
                 in_folder=in_folder,
                 include_subfolder_in_folder=include_subfolder_in_folder,
             )
-
-            session = self._create_session()
-            try:
-                search_result = session.search(
-                    self._repository_id(),
-                    OdmaQName.from_string("alfresco:afts"),
-                    query,
+            return self._run_search(
+                query_language="alfresco:afts",
+                query=query,
+                included_metadata=included_metadata,
+                search_result_limit=self.search_result_limit,
                 )
-
-                items = []
-                for obj in search_result.get_objects():
-                    if not isinstance(obj, OdmaDocument):
-                        continue
-                    items.append(self._object_item(obj, included_metadata=included_metadata))
-                    if len(items) >= self.search_result_limit:
-                        break
-
-                return OpenDMAListResult(
-                    items=items,
-                    has_more=False,
-                    continuation_token=None,
-                ).model_dump()
-            finally:
-                session.close()
         except Exception as exc:
             return self._tool_error("opendma_search", exc)
 
