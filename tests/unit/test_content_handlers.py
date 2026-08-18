@@ -234,9 +234,7 @@ class TestDoclingLoaderContentHandler:
             is True
         )
         assert (
-            handler.can_handle(
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            handler.can_handle("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             is True
         )
         assert handler.can_handle("text/html") is True

@@ -306,9 +306,7 @@ class DocumentumRetriever(OpenDMARetriever):
         if not words:
             raise ValueError("query must not be empty")
 
-        content_query = " OR ".join(
-            f"'{self._escape_dql_string_literal(word)}'" for word in words
-        )
+        content_query = " OR ".join(f"'{self._escape_dql_string_literal(word)}'" for word in words)
         return f"SELECT * FROM dm_document SEARCH DOCUMENT CONTAINS {content_query}"
 
     def _escape_dql_string_literal(self, value: str) -> str:

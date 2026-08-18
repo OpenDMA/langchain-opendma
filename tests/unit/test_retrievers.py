@@ -26,9 +26,7 @@ class RecordingLoader:
     def lazy_load(self) -> Iterator[Document]:
         for index in range(self.retriever.document_count):
             document = Document(
-                page_content="result"
-                if self.retriever.document_count == 1
-                else f"result {index}"
+                page_content="result" if self.retriever.document_count == 1 else f"result {index}"
             )
             self.retriever.yielded_documents += 1
             yield document
