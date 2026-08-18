@@ -10,6 +10,7 @@ from collections import OrderedDict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
+from html import escape as escape_xml_text
 from time import monotonic
 from typing import Any
 
@@ -897,3 +898,185 @@ class AlfrescoToolkit(_SearchToolkit):
 
     def _escape_afts_phrase(self, value: str) -> str:
         return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+class FileNetP8Toolkit(_SearchToolkit):
+    """Create read-only LangChain tools for FileNet P8 via OpenDMA."""
+
+    query_language = "filenetp8:sql"
+
+    def _search_tool_description(self) -> str:
+        return (
+            "Search FileNet P8 documents via OpenDMA using full text. "
+            "Use in_folder to restrict the search to a FileNet folder."
+        )
+
+    def _build_search_query(
+        self,
+        full_text: str | None,
+        in_folder: str | None,
+        include_subfolder_in_folder: bool | None,
+    ) -> str:
+        query_parts = []
+        join = ""
+
+        words = self._split_words(full_text)
+        if words:
+            join = " INNER JOIN ContentSearch cs ON d.This = cs.QueriedObject"
+            content_query = " OR ".join(self._escape_content_search_word(word) for word in words)
+            content_query = self._escape_sql_string_literal(content_query)
+            query_parts.append(f"CONTAINS(d.*, '{content_query}')")
+
+        if in_folder is not None:
+            normalized_folder = in_folder.strip()
+            if normalized_folder:
+                folder_operator = "INSUBFOLDER" if include_subfolder_in_folder else "INFOLDER"
+                folder_id = self._filenet_folder_id(normalized_folder)
+                query_parts.append(f"d.This {folder_operator} {folder_id}")
+
+        if not query_parts:
+            raise ValueError("full_text or in_folder must be provided")
+
+        return f"SELECT d.This FROM Document d{join} WHERE {' AND '.join(query_parts)}"
+
+    def _build_full_text_query(self, full_text: str | None) -> str:
+        words = self._split_words(full_text)
+        if not words:
+            raise ValueError("full_text must not be empty")
+
+        content_query = " OR ".join(self._escape_content_search_word(word) for word in words)
+        content_query = self._escape_sql_string_literal(content_query)
+        return (
+            "SELECT d.This FROM Document d "
+            "INNER JOIN ContentSearch cs ON d.This = cs.QueriedObject "
+            f"WHERE CONTAINS(d.*, '{content_query}')"
+        )
+
+    def _escape_content_search_word(self, value: str) -> str:
+        special_characters = frozenset("*?:^()[]{}@\\~")
+        return "".join(
+            f"\\{character}" if character in special_characters else character
+            for character in value
+        )
+
+    def _escape_sql_string_literal(self, value: str) -> str:
+        return value.replace("'", "''")
+
+    def _filenet_folder_id(self, object_id: str) -> str:
+        parts = object_id.split(":")
+        if len(parts) != 3:
+            raise ValueError(
+                "FileNet folder object ID must have the format "
+                "'objectstore:<classId>:<objectId>'"
+            )
+        if parts[0] != "objectstore":
+            raise ValueError("FileNet folder object ID must start with 'objectstore:'")
+        folder_id = parts[2]
+        if not folder_id.startswith("{") or not folder_id.endswith("}"):
+            raise ValueError("FileNet folder object ID must end with a braced object ID")
+        return folder_id
+
+
+class DocumentumToolkit(_SearchToolkit):
+    """Create read-only LangChain tools for Documentum via OpenDMA."""
+
+    query_language = "dctm:dql"
+
+    def _search_tool_description(self) -> str:
+        return (
+            "Search Documentum documents via OpenDMA using full text. "
+            "Use in_folder to restrict the search to a Documentum folder."
+        )
+
+    def _build_search_query(
+        self,
+        full_text: str | None,
+        in_folder: str | None,
+        include_subfolder_in_folder: bool | None,
+    ) -> str:
+        content_query = self._documentum_content_query(full_text)
+        folder_query = self._documentum_folder_query(in_folder, include_subfolder_in_folder)
+
+        if content_query is None and folder_query is None:
+            raise ValueError("full_text or in_folder must be provided")
+
+        query = "SELECT * FROM dm_document"
+        if content_query is not None:
+            query += f" SEARCH DOCUMENT CONTAINS {content_query}"
+        if folder_query is not None:
+            query += f" WHERE {folder_query}"
+        return query
+
+    def _build_full_text_query(self, full_text: str | None) -> str:
+        content_query = self._documentum_content_query(full_text)
+        if content_query is None:
+            raise ValueError("full_text must not be empty")
+        return f"SELECT * FROM dm_document SEARCH DOCUMENT CONTAINS {content_query}"
+
+    def _documentum_content_query(self, full_text: str | None) -> str | None:
+        words = self._split_words(full_text)
+        if not words:
+            return None
+
+        return " OR ".join(f"'{self._escape_dql_string_literal(word)}'" for word in words)
+
+    def _documentum_folder_query(
+        self,
+        in_folder: str | None,
+        include_subfolder_in_folder: bool | None,
+    ) -> str | None:
+        if in_folder is None:
+            return None
+        normalized_folder = in_folder.strip()
+        if not normalized_folder:
+            return None
+        folder_id = self._escape_dql_string_literal(normalized_folder)
+        if include_subfolder_in_folder:
+            return f"FOLDER(ID('{folder_id}'), DESCEND)"
+        return f"FOLDER(ID('{folder_id}'))"
+
+    def _escape_dql_string_literal(self, value: str) -> str:
+        return value.replace("'", "''")
+
+
+class OnBaseToolkit(_SearchToolkit):
+    """Create read-only LangChain tools for OnBase via OpenDMA."""
+
+    query_language = "onbase:DocumentQuery"
+
+    def _search_tool_description(self) -> str:
+        return "Search OnBase documents via OpenDMA using full text."
+
+    def _build_search_query(
+        self,
+        full_text: str | None,
+        in_folder: str | None,
+        include_subfolder_in_folder: bool | None,  # noqa: ARG002
+    ) -> str:
+        if in_folder is not None:
+            raise ValueError("Restricting OnBase searches to a folder is not available")
+        return self._build_full_text_query(full_text)
+
+    def _build_full_text_query(self, full_text: str | None) -> str:
+        words = self._split_words(full_text)
+        if not words:
+            raise ValueError("full_text must not be empty")
+
+        full_text_query = escape_xml_text(" OR ".join(words), quote=False)
+        return (
+            "<DocumentQuery>"
+            '<CustomQueries isList="true"></CustomQueries>'
+            '<DateRanges isList="true"></DateRanges>'
+            '<DisplayField isList="true"></DisplayField>'
+            "<Distinct>false</Distinct>"
+            '<DocumentRanges isList="true"></DocumentRanges>'
+            "<DocumentTypeGroups></DocumentTypeGroups>"
+            "<DocumentTypes></DocumentTypes>"
+            f"<FullTextSearchString>{full_text_query}</FullTextSearchString>"
+            "<NoteTypes></NoteTypes>"
+            '<QueryKeywords isList="true"></QueryKeywords>'
+            '<QueryRecords isList="true"></QueryRecords>'
+            '<SortBy isList="true"></SortBy>'
+            "<TextSearchType>2</TextSearchType>"
+            "</DocumentQuery>"
+        )

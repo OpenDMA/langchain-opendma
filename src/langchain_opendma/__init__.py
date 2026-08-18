@@ -20,7 +20,13 @@ from langchain_opendma.retrievers import (
     OnBaseRetriever,
     OpenDMARetriever,
 )
-from langchain_opendma.tools import AlfrescoToolkit, OpenDMAToolkit
+from langchain_opendma.tools import (
+    AlfrescoToolkit,
+    DocumentumToolkit,
+    FileNetP8Toolkit,
+    OnBaseToolkit,
+    OpenDMAToolkit,
+)
 
 __version__ = "0.3.0.dev1"
 
@@ -38,4 +44,7 @@ __all__ = [
     "DoclingLoaderContentHandler",
     "OpenDMAToolkit",
     "AlfrescoToolkit",
+    "FileNetP8Toolkit",
+    "DocumentumToolkit",
+    "OnBaseToolkit",
 ]

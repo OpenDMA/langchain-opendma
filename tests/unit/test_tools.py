@@ -673,3 +673,165 @@ class TestAlfrescoToolkit:
                 read_text_cache_max_objects=read_text_cache_max_objects,
                 read_text_cache_ttl_seconds=read_text_cache_ttl_seconds,
             )
+
+
+class TestFileNetP8Toolkit:
+    """Test cases for FileNetP8Toolkit public tool contract."""
+
+    def test_search_uses_filenet_query_language(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        session = FakeOdmaSession()
+        toolkit = FileNetP8Toolkit(
+            endpoint="http://localhost:8080/opendma/filenet",
+            username="admin",
+            password="admin",
+            repository_id="FileNetP8",
+        )
+        monkeypatch.setattr(toolkit, "_create_session", lambda: session)
+
+        result = toolkit.search(full_text="foo bar")
+
+        assert session.query_language == "filenetp8:sql"
+        assert session.query
+        assert result["items"][0]["object_id"] == "doc-a"
+
+    def test_search_accepts_filenet_special_characters(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        session = FakeOdmaSession()
+        toolkit = FileNetP8Toolkit(
+            endpoint="http://localhost:8080/opendma/filenet",
+            username="admin",
+            password="admin",
+            repository_id="FileNetP8",
+        )
+        monkeypatch.setattr(toolkit, "_create_session", lambda: session)
+
+        result = toolkit.search(full_text="owner's name?")
+
+        assert "error" not in result
+        assert session.query
+
+    def test_search_returns_error_payload_for_empty_filenet_search(self) -> None:
+        toolkit = FileNetP8Toolkit(
+            endpoint="http://localhost:8080/opendma/filenet",
+            username="admin",
+            password="admin",
+            repository_id="FileNetP8",
+        )
+
+        result = toolkit.search(full_text="  \n\t  ")
+
+        assert result["error"] is True
+        assert result["tool"] == "opendma_search"
+
+
+class TestDocumentumToolkit:
+    """Test cases for DocumentumToolkit public tool contract."""
+
+    def test_search_uses_documentum_query_language(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        session = FakeOdmaSession()
+        toolkit = DocumentumToolkit(
+            endpoint="http://localhost:8080/opendma/documentum",
+            username="admin",
+            password="admin",
+            repository_id="Documentum",
+        )
+        monkeypatch.setattr(toolkit, "_create_session", lambda: session)
+
+        result = toolkit.search(full_text="foo bar")
+
+        assert session.query_language == "dctm:dql"
+        assert session.query
+        assert result["items"][0]["object_id"] == "doc-a"
+
+    def test_search_accepts_documentum_apostrophes(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        session = FakeOdmaSession()
+        toolkit = DocumentumToolkit(
+            endpoint="http://localhost:8080/opendma/documentum",
+            username="admin",
+            password="admin",
+            repository_id="Documentum",
+        )
+        monkeypatch.setattr(toolkit, "_create_session", lambda: session)
+
+        result = toolkit.search(full_text="owner's name")
+
+        assert "error" not in result
+        assert session.query
+
+    def test_search_returns_error_payload_for_empty_documentum_search(self) -> None:
+        toolkit = DocumentumToolkit(
+            endpoint="http://localhost:8080/opendma/documentum",
+            username="admin",
+            password="admin",
+            repository_id="Documentum",
+        )
+
+        result = toolkit.search(full_text="  \n\t  ")
+
+        assert result["error"] is True
+        assert result["tool"] == "opendma_search"
+
+
+class TestOnBaseToolkit:
+    """Test cases for OnBaseToolkit public tool contract."""
+
+    def test_search_uses_onbase_query_language(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        session = FakeOdmaSession()
+        toolkit = OnBaseToolkit(
+            endpoint="http://localhost:8080/opendma/onbase",
+            username="admin",
+            password="admin",
+            repository_id="OnBase",
+        )
+        monkeypatch.setattr(toolkit, "_create_session", lambda: session)
+
+        result = toolkit.search(full_text="foo bar")
+
+        assert session.query_language == "onbase:DocumentQuery"
+        assert session.query
+        assert result["items"][0]["object_id"] == "doc-a"
+
+    def test_search_accepts_onbase_xml_special_characters(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        session = FakeOdmaSession()
+        toolkit = OnBaseToolkit(
+            endpoint="http://localhost:8080/opendma/onbase",
+            username="admin",
+            password="admin",
+            repository_id="OnBase",
+        )
+        monkeypatch.setattr(toolkit, "_create_session", lambda: session)
+
+        result = toolkit.search(full_text="<test foo bar")
+
+        assert "error" not in result
+        assert session.query
+
+    def test_search_returns_error_payload_for_empty_onbase_search(self) -> None:
+        toolkit = OnBaseToolkit(
+            endpoint="http://localhost:8080/opendma/onbase",
+            username="admin",
+            password="admin",
+            repository_id="OnBase",
+        )
+
+        result = toolkit.search(full_text="  \n\t  ")
+
+        assert result["error"] is True
+        assert result["tool"] == "opendma_search"
