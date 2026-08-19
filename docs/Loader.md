@@ -39,6 +39,11 @@ loader = OpenDMALoader(
 documents = loader.load()
 ```
 
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your ECM
+to the OpenDMA data model and expose such an endpoint is to run the
+[ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
+
 The default content handler is `PlainTextHandler`, which processes `text/plain`
 content only.
 
@@ -329,6 +334,11 @@ loader = AlfrescoLoader(
 
 documents = loader.load()
 ```
+
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your
+Alfresco deployment to the OpenDMA data model and expose such an endpoint is
+to run the [ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
 
 You can combine `AlfrescoLoader` with the same content handlers as
 `OpenDMALoader`:

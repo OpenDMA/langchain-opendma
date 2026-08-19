@@ -1,4 +1,4 @@
-# Agentic RAG
+# Agentic RAG with Vector Store
 
 This tutorial is a continuation of the previous [Metadata-Aware Retrieval](./02_metadata_aware_retrieval.md).
 
@@ -648,3 +648,13 @@ data in general.
 
 Head over to the open source [OpenDMA](https://opendma.org) project to learn
 how to connect your ECM to LangChain.
+
+The approach demonstrated here requires to setup a vector store in advance. This
+can be a very time consuming and expensive operation. Even worse, it might
+introduce security and compliance risks as the data in the vector store is no
+longer under the access control of your ECM.
+
+An [Agentic RAG with OpenDMA Retriever](./04_agentic_rag_retriever.md) leverages
+the full text search capability built into many ECM systems, like Alfrresco. With
+an agent as orchestrator, the RAG can run multiple keyword based full text
+searches to compensate for the lack of similarity search offered by vector stores.

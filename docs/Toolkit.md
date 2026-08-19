@@ -39,6 +39,11 @@ toolkit = OpenDMAToolkit(
 )
 ```
 
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your ECM
+to the OpenDMA data model and expose such an endpoint is to run the
+[ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
+
 Toolkits use the same [content handlers](./Loader.md#content-handlers)
 as loaders to transform binary files into text chunks.
 
@@ -232,6 +237,11 @@ toolkit = AlfrescoToolkit(
 )
 ```
 
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your
+Alfresco deployment to the OpenDMA data model and expose such an endpoint is
+to run the [ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
+
 The search tool converts `full_text` into an Alfresco `TEXT` query. If
 `in_folder` is set, the search is restricted to direct children of that folder.
 Set `include_subfolder_in_folder=True` to include descendants.
@@ -290,6 +300,11 @@ toolkit = FileNetP8Toolkit(
 )
 ```
 
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your
+FileNet P8 deployment to the OpenDMA data model and expose such an endpoint is
+to run the [ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
+
 The search tool splits `full_text` into words, escapes FileNet content-search
 special characters, joins the terms with `OR`, and places the result into a
 FileNet `CONTAINS` clause.
@@ -329,6 +344,11 @@ toolkit = DocumentumToolkit(
 )
 ```
 
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your
+Documentum deployment to the OpenDMA data model and expose such an endpoint is
+to run the [ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
+
 The search tool splits `full_text` into words, escapes DQL string literals,
 joins the terms with `OR`, and places the result into a
 `SEARCH DOCUMENT CONTAINS` clause.
@@ -359,6 +379,11 @@ toolkit = OnBaseToolkit(
     repository_id="OnBase",
 )
 ```
+
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your
+OnBase deployment to the OpenDMA data model and expose such an endpoint is
+to run the [ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
 
 The search tool splits `full_text` into words, joins the terms with `OR`, XML
 escapes the result, and places it into `FullTextSearchString`.

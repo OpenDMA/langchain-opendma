@@ -18,7 +18,7 @@ information into account, like the Site where the document is stored.
 > The example in this tutorial is a bit brittle and might not always work.
 > The Alfresco Sample Site is full of "Lorem Ipsum" text making similarity
 > search challenging.  
-> Following tutorials present advanced techniques based on deepagents.
+> Following tutorials present advanced techniques based on tool-calling agents.
 
 ## Running Alfresco Community Edition
 
@@ -761,3 +761,13 @@ This is the advantage of using OpenDMA as document source for LangChain. The
 RAG application does not only receive text chunks. It also receives repository
 metadata that can guide retrieval and improve the quality of the generated
 answer.
+
+## Next
+
+In the next tutorial, [Agentic RAG with Vector Store](./03_agentic_rag_vectorstore.md),
+we use a tool-calling agent to orchestrate searches in the vector store.
+
+Instead of following a strict sequence of first analysing, then retrieving and finally
+generating the answer, it can decide on its own how many searches with different
+keywords it wants to run until it has discovered all relevant information to answer the
+initial user question.

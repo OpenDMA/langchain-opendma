@@ -43,6 +43,11 @@ retriever = OpenDMARetriever(
 documents = retriever.invoke("SELECT * FROM cmis:document")
 ```
 
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your ECM
+to the OpenDMA data model and expose such an endpoint is to run the
+[ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
+
 Retrievers use the same [content handlers](./Loader.md#content-handlers)
 and [content-state](./Loader.md#content-states) options as loaders:
 
@@ -118,6 +123,11 @@ retriever = AlfrescoRetriever(
 documents = retriever.invoke("website design")
 ```
 
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your
+Alfresco deployment to the OpenDMA data model and expose such an endpoint is
+to run the [ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
+
 When `sites` is set, retrieval is restricted to the matching Alfresco site short
 names.
 
@@ -148,6 +158,11 @@ retriever = FileNetP8Retriever(
 documents = retriever.invoke("contract invoice")
 ```
 
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your
+FileNet P8 deployment to the OpenDMA data model and expose such an endpoint is
+to run the [ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
+
 `FileNetP8Retriever` supports the same options as `OpenDMARetriever`, with this
 default:
 
@@ -172,6 +187,11 @@ retriever = DocumentumRetriever(
 documents = retriever.invoke("contract invoice")
 ```
 
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your
+Documentum deployment to the OpenDMA data model and expose such an endpoint is
+to run the [ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
+
 `DocumentumRetriever` supports the same options as `OpenDMARetriever`, with this
 default:
 
@@ -195,6 +215,11 @@ retriever = OnBaseRetriever(
 
 documents = retriever.invoke("contract invoice")
 ```
+
+The `endpoint` expects an OpenDMA REST service. The quickest way to map your
+OnBase deployment to the OpenDMA data model and expose such an endpoint is
+to run the [ECI Server](https://github.com/xaldon/eci-server).
+It is available free of charge for non-production use.
 
 `OnBaseRetriever` supports the same options as `OpenDMARetriever`, with this
 default:

@@ -37,7 +37,7 @@ pip install langchain langchain-openai langchain-opendma
 pip install "langchain-opendma[unstructured]"
 ```
 
-### Initialise OpenAI API key
+## Initialise OpenAI API key
 
 Make sure you have the `OPENAI_API_KEY` environment variable set.
 
