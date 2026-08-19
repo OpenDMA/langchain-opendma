@@ -67,7 +67,7 @@ for document in documents:
 
 By default, `OpenDMALoader` handles `text/plain` content. For PDF, Office,
 HTML, image, and other rich formats, configure an Unstructured or Docling content
-handler. See the [documentation](https://github.com/OpenDMA/langchain-opendma/tree/main/docs/README.md) for details.
+handler. See the [content handler documentation](https://github.com/OpenDMA/langchain-opendma/blob/main/docs/Loader.md#content-handlers) for details.
 
 Use `OpenDMARetriever` when you want LangChain to call an OpenDMA search as part
 of a retrieval pipeline:
