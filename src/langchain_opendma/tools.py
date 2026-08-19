@@ -120,6 +120,16 @@ class OpenDMASearchInput(BaseModel):
     )
 
 
+class OnBaseSearchInput(BaseModel):
+    """Input for opendma_search on OnBase."""
+
+    full_text: str | None = Field(default=None, description="Optional full-text query.")
+    included_metadata: list[str] | None = Field(
+        default=None,
+        description="Qualified OpenDMA property names to include for each item.",
+    )
+
+
 class OpenDMAReadTextInput(BaseModel):
     """Input for opendma_read_text."""
 
@@ -146,7 +156,7 @@ class SiteDescription(BaseModel):
     short_name: str
     title: str
     description: str
-    root_folder: str
+    root_folder_id: str
 
 
 @dataclass
@@ -438,16 +448,19 @@ class OpenDMAToolkit:
 
     def _search_tool_description(self) -> str:
         return (
-            "Search OpenDMA documents using full text and optional folder "
-            "constraints. The portable query backend is still under development."
+            "Search documents via OpenDMA using full text. "
+            "Use in_folder to restrict the search to a folder."
         )
+
+    def _search_tool_args_schema(self) -> type[BaseModel]:
+        return OpenDMASearchInput
 
     def _search_tool(self) -> BaseTool:
         return StructuredTool.from_function(
             name="opendma_search",
             description=self._search_tool_description(),
             func=self.search,
-            args_schema=OpenDMASearchInput,
+            args_schema=self._search_tool_args_schema(),
             handle_validation_error=self._format_validation_error,
         )
 
@@ -848,7 +861,7 @@ class AlfrescoToolkit(_SearchToolkit):
                                 obj,
                                 "alfresco:cm:description",
                             ),
-                            root_folder=str(obj.get_id()),
+                            root_folder_id=str(obj.get_id()),
                         )
                     )
                 return [site.model_dump() for site in sites]
@@ -859,9 +872,8 @@ class AlfrescoToolkit(_SearchToolkit):
 
     def _search_tool_description(self) -> str:
         return (
-            "Search Alfresco documents via OpenDMA using Alfresco AFTS. "
-            "Use full_text for content search and in_folder to restrict the search "
-            "to a folder."
+            "Search Alfresco documents via OpenDMA using full text. "
+            "Use in_folder to restrict the search to an Alfresco folder."
         )
 
     def _build_search_query(
@@ -1045,6 +1057,9 @@ class OnBaseToolkit(_SearchToolkit):
 
     def _search_tool_description(self) -> str:
         return "Search OnBase documents via OpenDMA using full text."
+
+    def _search_tool_args_schema(self) -> type[BaseModel]:
+        return OnBaseSearchInput
 
     def _build_search_query(
         self,
