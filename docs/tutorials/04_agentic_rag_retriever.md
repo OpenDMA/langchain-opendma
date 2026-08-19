@@ -6,7 +6,7 @@ embeddings and store it in a vector store.
 
 A vector store provides better retrieval results. The original question from
 the user might not contain any of the words that appear in text snippets which
-are needed to answer this question. A semantic serarch solves this problem.
+are needed to answer this question. A semantic search solves this problem.
 
 The previous [Agentic RAG with Vector Store](./03_agentic_rag_vectorstore.md)
 tutorial uses an orchestrator that can decide to run another search with a
@@ -24,6 +24,12 @@ complex access rights are a key barrier.
 If an agentic workflow can perform multiple searches, is it able to formulate
 search queries that reveal relevant information even without a semantic search?
 
+> [!NOTE]
+> This tutorial uses live LLM calls. Even with `temperature=0`, hosted models can
+> change over time and may choose slightly different retrieval queries or produce
+> different answer text. The exact output shown below should be treated as one
+> representative run.
+
 ## Alfresco Repository
 
 This tutorial is using the same Alfresco Repository and OpenDMA endpoint we have
@@ -36,12 +42,12 @@ instructions if you have skipped the previous tutorial. Also make sure to
 
 ## Install Dependencies
 
-Install LangChain, the OpenDMA integration, and the optional Unstructured
+Install LangChain, the OpenDMA integration, and the optional Docling
 content handler dependencies:
 
 ```bash
 pip install langchain langchain-openai langgraph langchain-opendma
-pip install "langchain-opendma[unstructured]"
+pip install "langchain-opendma[docling]"
 ```
 
 ## Setup
@@ -117,6 +123,7 @@ def search_content(query: str, site: str | None = None, k: int = 8) -> str:
 We use the same `list_sites` tool as before.
 
 ```python
+from opendma.api import OdmaId, OdmaQName
 import opendma.remote
 
 def get_property_string(obj: object, qname: str) -> str:
@@ -313,7 +320,6 @@ We compose the individual steps into a workflow.
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
-from opendma.api import OdmaId, OdmaQName
 
 def latest_tool_message(messages: list[AnyMessage]) -> ToolMessage | None:
     """Return the latest tool message in the conversation state."""
@@ -552,7 +558,7 @@ state of localisation for the new website design. Therefore, I do not know the
 current state of localisation.
 ```
 
-The time, the orchestrator needs three search attempts rather than two to find the
+This time, the orchestrator needs three search attempts rather than two to find the
 relevant information.
 
 ## Conclusion

@@ -6,6 +6,12 @@ OpenDMA toolkit.
 We observe how this agent is using its tools to gather the information required
 to answer different questions.
 
+> [!NOTE]
+> This tutorial uses live LLM calls. Even with `temperature=0`, hosted models can
+> change over time and may choose slightly different retrieval queries or produce
+> different answer text. The exact output shown below should be treated as one
+> representative run.
+
 ## Tutorial Repository
 
 OpenDMA provides a tutorial repository which contains, among other things, the

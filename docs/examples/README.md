@@ -190,7 +190,7 @@ uv run python docs/examples/11_alfresco_loader.py
 
 Looking at the `alfresco:Path` you can see that it includes information from the Wiki
 and Links as well, not just files from the Document Library.  
-Depending on the size, each extracted file is split into multiple Langchain Documents
+Depending on the size, each extracted file is split into multiple LangChain Documents
 using the Unstructured library.
 
 ### `12_alfresco_retriever.py`

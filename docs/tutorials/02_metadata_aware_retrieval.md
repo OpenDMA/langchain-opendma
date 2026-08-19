@@ -15,10 +15,10 @@ To fix this, we extend the basic RAG and enable it to take additional
 information into account, like the Site where the document is stored.
 
 > [!NOTE]
-> The example in this tutorial is a bit brittle and might not always work.
-> The Alfresco Sample Site is full of "Lorem Ipsum" text making similarity
-> search challenging.  
-> Following tutorials present advanced techniques based on tool-calling agents.
+> This tutorial uses live LLM calls. Even with `temperature=0`, hosted models can
+> change over time and may choose slightly different retrieval queries or produce
+> different answer text. The exact output shown below should be treated as one
+> representative run.
 
 ## Running Alfresco Community Edition
 
@@ -377,7 +377,7 @@ Indexed 368 additional documents.
 ```
 
 The Unstructured library has split the single text file in Alfresco into 368 text
-chunks, each represented as a LangChain `Documnet`.
+chunks, each represented as a LangChain `Document`.
 
 Now we ask the same question again, using a larger knowledge base:
 
