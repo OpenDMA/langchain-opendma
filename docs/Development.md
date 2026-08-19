@@ -97,8 +97,8 @@ uv run pytest
 uv run ruff check src tests
 uv run mypy src tests
 uv build
-git tag 0.1.0
-git push origin 0.1.0
+git tag X.Y.Z
+git push origin X.Y.Z
 uv publish
 ```
 

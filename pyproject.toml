@@ -1,7 +1,7 @@
 [project]
 name = "langchain-opendma"
 version = "0.3.0.dev1"
-description = "LangChain loaders and retrievers for OpenDMA - integrate ECM systems with LangChain"
+description = "Integration of Enterprise Content Management (ECM) systems with LangChain through toolkits, loaders, and retrievers"
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
@@ -14,7 +14,7 @@ dependencies = [
     "opendma-api>=0.8.0",
     "opendma-remote>=0.8.0",
 ]
-keywords = ["langchain", "opendma", "ecm", "document-loaders"]
+keywords = ["langchain", "opendma", "ecm", "document-loaders", "retrievers", "tools", "agents"]
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
@@ -100,7 +100,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "--cov=langchain_opendma --cov-report=term-missing --cov-report=html"
 markers = [
-    "integration: tests requiring an external OpenDMA tutorial repository",
+    "integration: tests requiring an external OpenDMA tutorial repository and an Alfresco deployment",
 ]
 
 [tool.coverage.run]

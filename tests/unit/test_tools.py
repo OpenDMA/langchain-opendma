@@ -553,8 +553,6 @@ class TestAlfrescoToolkit:
         assert session.query
         assert session.closed
 
-        print(result)
-
         assert "items" in result
         assert isinstance(result["items"], list)
         assert len(result["items"]) == 2

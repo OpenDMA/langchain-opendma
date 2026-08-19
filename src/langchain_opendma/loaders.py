@@ -28,7 +28,6 @@ class OpenDMALoader(BaseLoader):
     - "Processed": Content extracted and processed by a ContentHandler
     - "Missing": No content available (only if include_no_content=True)
     - "Unsupported": Content MIME type not supported (only if include_unhandled_content=True)
-    - "Rendition": Content from ECM rendition (future feature)
 
     Example:
         ```python

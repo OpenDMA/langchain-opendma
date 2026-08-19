@@ -428,15 +428,12 @@ class OpenDMAToolkit:
         included_metadata: list[str] | None = None,
     ) -> dict[str, Any]:
         """Implementation for opendma_search."""
-        # TODO: Implement against the OpenDMA metadata query abstraction once it
-        # is available in opendma-api/opendma-remote.
         return {
             "items": [],
             "has_more": False,
             "continuation_token": None,
             "error": (
-                "opendma_search is waiting for the portable OpenDMA metadata "
-                "query abstraction. Inputs were accepted but no query was run."
+                "opendma_search is not available on this specific ECM platform."
             ),
             "received": {
                 "full_text": full_text,
