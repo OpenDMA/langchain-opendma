@@ -7,7 +7,7 @@ For installation and a short project overview, see the project
 
 ## Core Concepts
 
-OpenDMA provides a uniform API for Enterprise Content Management (ECM) and
+[OpenDMA](https://opendma.org/) provides a uniform API for Enterprise Content Management (ECM) and
 document management repositories. It supports Alfresco, CMOD (Content Manager
 OnDemand), Documentum, FileNet P8, OpenText, OnBase, Nuxeo, SharePoint,
 and many more.
@@ -20,10 +20,14 @@ pipelines to build knowledge bases.
 in LangChain. Typically used to get relevant context into your agents, e.g. as
 part of RAG.
 
-Every returned LangChain `Document` contains:
+Every LangChain `Document` returned by Loaders or Retrievers contains:
 
 - `page_content`: text extracted from the repository document
 - `metadata`: OpenDMA metadata, repository-specific metadata, and integration metadata
+
+`OpenDMAToolkit` provides a set of tools to be used by tool-calling agents to
+navigate around the repository, investigate the data model and read sections of
+documents.
 
 ## [OpenDMALoader](./Loader.md)
 
@@ -66,6 +70,28 @@ documents = retriever.invoke("SELECT * FROM cmis:document")
 ```
 
 See the [Retriever](./Retriever.md) documentation for details.
+
+## [OpenDMAToolkit](./Toolkit.md)
+
+`OpenDMAToolkit` provides a set of tools to be used by agents.
+
+```python
+from langchain_opendma import OpenDMAToolkit
+from langchain_opendma.content_handlers import DoclingLoaderContentHandler
+
+toolkit = OpenDMAToolkit(
+    endpoint="http://localhost:8080/opendma",
+    username="ignored",
+    password="ignored",
+    repository_id="sample-repo",
+    content_handlers=[DoclingLoaderContentHandler()],
+)
+
+for tool in toolkit.get_tools():
+    print(tool.name)
+```
+
+See the [Toolkit](./Toolkit.md) documentation for details.
 
 ## Tutorials
 

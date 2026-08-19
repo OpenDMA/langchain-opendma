@@ -1,25 +1,31 @@
 # LangChain OpenDMA
 
-LangChain document loaders and retrievers for [OpenDMA](https://opendma.org/).
+Integrate LangChain with Enterprise Content Management systems such as Alfresco,
+CMOD, Documentum, FileNet P8, OnBase, SharePoint, and other platforms.
 
-OpenDMA is a vendor-neutral abstraction layer for enterprise content management
-systems. It provides a common API for repositories such as Alfresco, CMOD,
-Documentum, FileNet P8, OnBase, SharePoint, and other ECM or document management
-platforms. This package connects that API to LangChain by loading and retrieving
+[OpenDMA](https://opendma.org/) is a vendor-neutral abstraction layer for
+Enterprise Content Management. It provides a common API for repositories allowing
+developers to build applications that access content stored on different
+platforms, including federating across multiple repositories.
+
+This package connects that API to LangChain by loading and retrieving
 OpenDMA documents as `langchain_core.documents.Document` objects.
 
-Use this package when you want to build LangChain applications, RAG pipelines, or
-content analysis workflows on top of documents stored in ECM systems.
+A convenient Toolkit allows agentic applications to browse through complex
+repository layouts to retrieve information.
+
+See our [examples](https://github.com/OpenDMA/langchain-opendma/tree/main/docs/examples/README.md)
+and [tutorials](https://github.com/OpenDMA/langchain-opendma/tree/main/docs/tutorials/README.md)
+to learn how to build RAG pipelines and tool-calling agents.
 
 ## Features
 
-- Load documents from an OpenDMA REST service by document ID, folder ID, or query.
-- Retrieve documents from OpenDMA search results through LangChain's retriever API.
-- Use specialized retrievers for Alfresco, Documentum, FileNet P8, and OnBase.
-- Preserve OpenDMA and repository metadata on every LangChain `Document`.
-- Process plain text content out of the box.
+- Tools to browse an ECM repository, e.g. to enable agents to discover relevant documents.
+- Tools for reading text chunks of documents, e.g. to allow agents to read sections of documents.
+- Load documents by document ID, folder ID, or query, e.g. to build a knowledge base.
+- Use LangChain's retriever API for full text search, e.g. to use an existing repository as knowledge base.
+- Preserve full metadata on every LangChain `Document`, e.g. to scope RAG retrieval to a subset of relevant items.
 - Process richer document formats with optional Unstructured or Docling handlers.
-- Use LangChain's sync and async document loader APIs.
 
 ## Installation
 
@@ -78,6 +84,35 @@ retriever = OpenDMARetriever(
 )
 
 documents = retriever.invoke("needle keyword")
+```
+
+The `OpenDMAToolkit` provides various tools to allow agents to browse repository
+layouts and read sections of text documents:
+
+```python
+from langchain_opendma import OpenDMAToolkit
+from langchain_opendma.content_handlers import DoclingLoaderContentHandler
+from langchain.agents import create_agent
+from langchain.chat_models import init_chat_model
+
+toolkit = OpenDMAToolkit(
+    endpoint="http://localhost:8080/opendma",
+    username="ignored",
+    password="ignored",
+    repository_id="sample-repo",
+    content_handlers=[DoclingLoaderContentHandler()],
+)
+
+agent = create_agent(
+    model=init_chat_model("openai:gpt-4o-mini"),
+    tools=toolkit.get_tools(),
+    system_prompt="You are...",
+)
+
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "Where can I find the latest meeting notes of project orion?"}]}
+)
+print(result["messages"][-1].content)
 ```
 
 ## Documentation
