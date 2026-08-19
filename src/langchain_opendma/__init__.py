@@ -28,7 +28,7 @@ from langchain_opendma.tools import (
     OpenDMAToolkit,
 )
 
-__version__ = "0.3.0.dev1"
+__version__ = "0.3.0"
 
 __all__ = [
     "OpenDMALoader",
