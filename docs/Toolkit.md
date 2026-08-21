@@ -1,7 +1,7 @@
 # OpenDMA Toolkit
 
 An OpenDMA Toolkit provides a set of tools that can be used by agents
-to browse around the the repository, explore the data model, and read
+to browse around the repository, explore the data model, and read
 sections of documents.
 
 Toolkits consist of:
@@ -47,7 +47,7 @@ It is available free of charge for non-production use.
 Toolkits use the same [content handlers](./Loader.md#content-handlers)
 as loaders to transform binary files into text chunks.
 
-Documents are read in chunks one by one with a continuation token. To optimise
+Documents are read in read in pages of chunks with a continuation token. To optimise
 performance, the toolkit caches chunks in memory after the binary data has been
 transformed by a content handler. This mechanism can be controlled with these
 parameters:
